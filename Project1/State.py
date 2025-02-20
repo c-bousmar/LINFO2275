@@ -1,6 +1,6 @@
 class State:
     
-    def __init__(self, position, state_type, is_junction):
+    def __init__(self, position, position_type, cell_type):
         self.position = position
-        self.state_type = state_type
-        self.is_junction = is_junction
+        self.position_type = position_type
+        self.cell_type = cell_type
