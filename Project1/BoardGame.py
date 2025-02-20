@@ -9,10 +9,9 @@ class BoardGame:
     def __init__(self, layout, circle):
         self.layout = layout
         self.circle = circle
-        self.size = len(layout)
         position_map = {position.value: position.name for position in PositionType}
         self.states = [ State(i, position_map.get(i, "INTERMEDIATE_CELL"), CellType(cell)) for i, cell in enumerate(layout) ]
-        self.final_state = self.states[self.size - 1]
+        self.final_state = self.states[len(self.states) - 1]
         self.dice   = [ Die(type_die=DieType.SECURITY, moves=[0, 1], probabilities=[1/2, 1/2], probability_triggers=0.0),
                         Die(type_die=DieType.NORMAL, moves=[0, 1, 2], probabilities=[1/3, 1/3, 1/3], probability_triggers=1/2),
                         Die(type_die=DieType.RISKY, moves=[0, 1, 2, 3], probabilities=[1/4, 1/4, 1/4, 1/4], probability_triggers=1.0) ]
