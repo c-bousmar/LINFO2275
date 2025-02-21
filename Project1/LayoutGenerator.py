@@ -1,4 +1,3 @@
-from BoardGame import BoardGame
 from Enum import CellType
 
 import numpy as np

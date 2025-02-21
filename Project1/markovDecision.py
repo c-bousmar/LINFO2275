@@ -46,12 +46,14 @@ def get_cost_to_goal_state(position):
     else:
         return PositionType.SLOW_LANE_LAST_CELL.value - position + 1
     
-def markovDecision(board):
+def markovDecision(layout, circle):
     """
     Solves the Markov Decision Process using Value Iteration.
     """
     max_iterations = 50000
     tol = 1e-9
+    
+    board = BoardGame(layout, circle)
 
     V_hat_k = np.zeros(len(board.states), dtype=float)
     policies = np.zeros(len(board.states), dtype=int)
@@ -82,13 +84,3 @@ def markovDecision(board):
         iteration += 1
 
     return [V_hat_k[:-1], policies[:-1]]
-
-if __name__ == '__main__':
-    
-    layout = np.array([0, 1, 1, 2, 1, 2, 3, 2, 2, 2, 0, 0, 2, 3, 0])
-    board = BoardGame(layout, circle=False)
-    decisions = markovDecision(board)
-
-    print("Expectation:", decisions[0])
-    print("\n")
-    print("Optimal Dice Choices:", decisions[1])
