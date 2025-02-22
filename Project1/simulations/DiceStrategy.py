@@ -1,12 +1,11 @@
 import sys
 sys.path.append('/Users/mathisdelsart/Desktop/Github-Repository/LINFO2275/Project1')
 
-from Algorithms.MarkovDecision import markovDecision
-from Algorithms.QLearningDecision import QLearningDecision
-
-from Game.TransitionManager import TransitionManager
-
+from algorithms.MarkovDecision import markovDecision
+from algorithms.QLearningDecision import QLearningDecision
+from game.TransitionManager import TransitionManager
 import numpy as np # type: ignore
+
 
 class DiceStrategy:
     

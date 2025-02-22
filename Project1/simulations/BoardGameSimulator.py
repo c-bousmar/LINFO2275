@@ -1,12 +1,12 @@
 import sys
 sys.path.append('/Users/mathisdelsart/Desktop/Github-Repository/LINFO2275/Project1')
 
-from Game.TransitionManager import TransitionManager
-
+from game.TransitionManager import TransitionManager
 import numpy as np # type: ignore
 import time
 import os
 import csv
+
 
 class BoardGameSimulator:
     
