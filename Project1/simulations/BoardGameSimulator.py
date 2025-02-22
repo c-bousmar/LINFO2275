@@ -1,4 +1,4 @@
-from markovDecision import get_cost_to_goal_state
+from algorithms.MarkovDecision import get_cost_to_goal_state
 
 import numpy as np
 import time

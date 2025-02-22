@@ -15,6 +15,7 @@ class BoardGame:
         self.cell_types = CellType
         self.cell_emojis = {"NORMAL" : "X", "RESTART" : "🔄", "PENALTY" : "⬅", "PRISON" : "⏳", "BONUS" : "⭐"}
 
+        self.start_cell = 0
         self.slow_lane = range(3, 10)
         self.fast_lane = range(10, 14)
         self.last_cell = 14

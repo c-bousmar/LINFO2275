@@ -19,7 +19,7 @@ class TransitionManager:
     def __init__(self, board):
         self.board = board
     
-    def transition_probabilities(self, state, die, board):
+    def transition_probabilities(self, state, die):
         """
         Computes the transition probabilities for a given state based on the dice roll and board rules.
 
@@ -66,7 +66,7 @@ class TransitionManager:
             
             for offset in offsets:
                 # Get next position
-                new_position = self.get_next_position(state.position, step_size_move, offset, board)
+                new_position = self.get_next_position(state.position, step_size_move, offset)
 
                 # Case where the event is not triggered
                 current_prob, current_extra = transitions.get(new_position, (0, 0))
@@ -76,7 +76,7 @@ class TransitionManager:
                 )
 
                 # Case where the event is triggered
-                new_position_trigger, extra_cost = self.handling_events(board.states[new_position])
+                new_position_trigger, extra_cost = self.handling_events(self.board.states[new_position])
                 current_prob, current_extra = transitions.get(new_position_trigger, (0, 0))
                 transitions[new_position_trigger] = (
                     current_prob + (prob_move * die.probability_triggers) / len(offsets),
@@ -122,7 +122,7 @@ class TransitionManager:
                 return state.position, -1
         return state.position, 0
 
-    def get_next_position(self, position, step_size_move, offset, board):
+    def get_next_position(self, position, step_size_move, offset):
         """
         Calculates the next position of a player on the board based on movement rules.
 
@@ -172,6 +172,6 @@ class TransitionManager:
 
         # Handling circle (if any) and wrapping around the board
         if new_position > self.board.last_cell:
-            new_position = self.board.last_cell if not board.circle else new_position - len(board.states)
+            new_position = self.board.last_cell if not self.board.circle else new_position - len(self.board.states)
         
         return new_position

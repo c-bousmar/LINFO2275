@@ -27,7 +27,7 @@ def markovDecision(layout, circle):
             V_k = {}
             
             for die in board.dice:
-                transitions = tm.transition_probabilities(state, die, board)
+                transitions = tm.transition_probabilities(state, die)
                 expected_cost = 1.0 + sum(extra + p * V_hat_k[pos] for pos, (p, extra) in transitions.items())
                 V_k[die.type.value] = expected_cost
 
