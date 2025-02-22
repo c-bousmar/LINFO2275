@@ -1,5 +1,3 @@
-from Enum import CellType, PositionType
-
 class TransitionManager:
     """
     Manages state transitions and movement rules on a board game.
@@ -17,9 +15,9 @@ class TransitionManager:
         get_next_position(position, step_size_move, offset, board):
             Calculates the next position of a player on the board based on movement rules, considering board constraints.
     """
+    
     def __init__(self, board):
         self.board = board
-    
     
     def transition_probabilities(self, state, die, board):
         """
@@ -61,27 +59,31 @@ class TransitionManager:
             distribution of possible transitions.
         """
         transitions = {}
-        offsets = [0, 8] if (state.position == PositionType.SLOW_LANE_FIRST_CELL.value - 1) else [0]
+        
+        offsets = [0, 8] if (state.position + 1 == self.board.slow_lane.start) else [0]
 
         for prob_move, step_size_move in zip(die.probabilities, die.moves):        
             
             for offset in offsets:
+                # Get next position
                 new_position = self.get_next_position(state.position, step_size_move, offset, board)
 
+                # Case where the event is not triggered
                 current_prob, current_extra = transitions.get(new_position, (0, 0))
                 transitions[new_position] = (
                     current_prob + (prob_move * (1 - die.probability_triggers)) / len(offsets),
                     current_extra
                 )
 
+                # Case where the event is triggered
                 new_position_trigger, extra_cost = self.handling_events(board.states[new_position])
                 current_prob, current_extra = transitions.get(new_position_trigger, (0, 0))
                 transitions[new_position_trigger] = (
                     current_prob + (prob_move * die.probability_triggers) / len(offsets),
                     current_extra + (prob_move * die.probability_triggers * extra_cost) / len(offsets)
                 )
-        return transitions
 
+        return transitions
 
     def handling_events(self, state):
         """
@@ -110,16 +112,15 @@ class TransitionManager:
             - Default case: No change in position or status.
         """
         match state.cell_type:
-            case CellType.RESTART:
+            case self.board.cell_types.RESTART:
                 return 0, 0
-            case CellType.PENALTY:
+            case self.board.cell_types.PENALTY:
                 return max(0, state.position - 3), 0
-            case CellType.PRISON:
+            case self.board.cell_types.PRISON:
                 return state.position, 1
-            case CellType.BONUS:
+            case self.board.cell_types.BONUS:
                 return state.position, -1
         return state.position, 0
-
 
     def get_next_position(self, position, step_size_move, offset, board):
         """
@@ -155,17 +156,22 @@ class TransitionManager:
             - If the new position exceeds `FINAL_CELL`, the position wraps around 
                 based on the total number of board states if the board is circular.
         """
+        # Basic movement
         new_position = position + step_size_move + offset
         
-        if offset == PositionType.FAST_LANE_FIRST_CELL.value - PositionType.SLOW_LANE_FIRST_CELL.value + 1:
+        # Handle special cases
+        if offset == self.board.fast_lane.start - self.board.slow_lane.start + 1:
             new_position -= 1
-            if new_position == PositionType.SLOW_LANE_LAST_CELL.value:
+            if new_position == self.board.slow_lane.stop - 1:
                 new_position = position
         
-        if PositionType.SLOW_LANE_FIRST_CELL.value <= position <= PositionType.SLOW_LANE_LAST_CELL.value:
-            if not (PositionType.SLOW_LANE_FIRST_CELL.value <= new_position <= PositionType.SLOW_LANE_LAST_CELL.value):
-                new_position += PositionType.FAST_LANE_LAST_CELL.value - PositionType.FAST_LANE_FIRST_CELL.value + 1
+        # Handling the gap between the 9_th position and the 14_th position (only one cell)
+        if position in self.board.slow_lane:
+            if new_position not in self.board.slow_lane:
+                new_position += self.board.fast_lane.stop - self.board.fast_lane.start
 
-        if new_position > PositionType.FINAL_CELL.value:
-            new_position = PositionType.FINAL_CELL.value if not board.circle else new_position - len(board.states)
+        # Handling circle (if any) and wrapping around the board
+        if new_position > self.board.last_cell:
+            new_position = self.board.last_cell if not board.circle else new_position - len(board.states)
+        
         return new_position

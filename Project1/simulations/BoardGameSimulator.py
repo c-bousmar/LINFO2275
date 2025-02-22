@@ -5,8 +5,6 @@ import time
 import os
 import csv
 
-from Enum import CellType, PositionType
-
 class BoardGameSimulator:
     def __init__(self, board, dice_strategies, n_simulations=1000, save_path="results/"):
         self.board = board
@@ -35,7 +33,7 @@ class BoardGameSimulator:
         exp_counts = np.zeros(15)
         
         steps = 0
-        while state.position != PositionType.FINAL_CELL.value:
+        while state.position != self.board.positions_types.FINAL_CELL.value:
             die_choice = strategy(state.position)
             
             dice_sums[state.position] += die_choice
@@ -45,15 +43,15 @@ class BoardGameSimulator:
             
             die = next(d for d in self.board.dice if d.type.value == die_choice)        
             move = die.roll()
-            new_position = min(state.position + move, PositionType.FINAL_CELL.value)
+            new_position = min(state.position + move, self.board.positions_types.FINAL_CELL.value)
             new_state = self.board.states[new_position]
-            if new_state.cell_type == CellType.RESTART and die.is_triggering_event():
+            if new_state.cell_type == self.board.cells_types.RESTART and die.is_triggering_event():
                 new_position = 0
-            elif new_state.cell_type == CellType.PENALTY and die.is_triggering_event():
+            elif new_state.cell_type == self.board.cells_types.PENALTY and die.is_triggering_event():
                 new_position = max(0, new_position - 3)
-            elif new_state.cell_type == CellType.PRISON and die.is_triggering_event():
+            elif new_state.cell_type == self.board.cells_types.PRISON and die.is_triggering_event():
                 steps += 1
-            elif new_state.cell_type == CellType.BONUS and die.is_triggering_event():
+            elif new_state.cell_type == self.board.cells_types.BONUS and die.is_triggering_event():
                 steps = -1    
             state = self.board.states[new_position]
             steps += 1
