@@ -3,7 +3,7 @@ import seaborn as sns # type: ignore
 import pandas as pd # type: ignore
 import numpy as np # type: ignore
 
-df = pd.read_csv("results/simulations.csv")
+df = pd.read_csv("../results/results.csv")
 
 ## Elapsed time with different strategies ##
 

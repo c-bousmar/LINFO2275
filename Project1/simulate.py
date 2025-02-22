@@ -1,10 +1,5 @@
-import sys
-sys.path.append('/Users/mathisdelsart/Desktop/Github-Repository/LINFO2275/Project1')
-
-from BoardGameSimulator import BoardGameSimulator
-from DiceStrategy import DiceStrategy
-from game.LayoutGenerator import LayoutGenerator
-from game.BoardGame import BoardGame
+from simulator import BoardGameSimulator, DiceStrategy
+from game import LayoutGenerator, BoardGame
 
 
 layouts_properties = {"Layout 1" : [0.0, 0.1, 0.05, 0.4],

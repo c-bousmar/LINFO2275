@@ -1,8 +1,5 @@
-import sys
-sys.path.append('/Users/mathisdelsart/Desktop/Github-Repository/LINFO2275/Project1')
-
-from game.TransitionManager import TransitionManager
-import numpy as np # type: ignore
+from game import TransitionManager
+import numpy as np
 import time
 import os
 import csv
@@ -10,7 +7,7 @@ import csv
 
 class BoardGameSimulator:
     
-    def __init__(self, board, dice_strategies, n_simulations=1000, save_path="Results_Simulations/"):
+    def __init__(self, board, dice_strategies, n_simulations=1000, save_path="results/"):
         self.board = board 
         self.tm = TransitionManager(board)
         self.dice_strategies = dice_strategies

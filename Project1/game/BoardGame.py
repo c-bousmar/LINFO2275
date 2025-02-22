@@ -1,6 +1,7 @@
-from game.Enum import DieType, CellType
-from game.State import State
-from game.Die import Die
+from .Enum import DieType
+from .State import State
+from .Enum import CellType
+from .Die import Die
 
 from itertools import chain
 

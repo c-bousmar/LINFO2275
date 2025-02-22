@@ -1,5 +1,5 @@
-from MarkovDecision import markovDecision
-from QLearningDecision import QLearningDecision
+from algorithms import markovDecision, QLearningDecision
+
 
 if __name__ == '__main__':
     
@@ -37,9 +37,10 @@ if __name__ == '__main__':
     print(expectations)
     print(die_optimal)
     
+    print("\n")
     ### QLearning ###
-    # layout = [0, 1, 3, 4, 2, 0, 0, 0, 0, 1, 1, 2, 1, 2, 0]
-    # circle = True
-    # expectations, die_optimal = QLearningDecision(layout, circle, display_board=True)
-    # print(expectations)
-    # print(die_optimal)
+    layout = [0, 1, 3, 4, 2, 0, 0, 0, 0, 1, 1, 2, 1, 2, 0]
+    circle = True
+    expectations, die_optimal = QLearningDecision(layout, circle, display_board=True)
+    print(expectations)
+    print(die_optimal)

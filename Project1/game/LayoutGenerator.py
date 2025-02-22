@@ -1,6 +1,6 @@
-from game.Enum import CellType
+from .Enum import CellType
 
-import numpy as np # type: ignore
+import numpy as np
 
 class LayoutGenerator:
     
