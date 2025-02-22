@@ -1,6 +1,6 @@
-from game.Enum import DieType, CellType
-from game.State import State
-from game.Die import Die
+from Game.Enum import DieType, CellType
+from Game.State import State
+from Game.Die import Die
 
 from itertools import chain
 

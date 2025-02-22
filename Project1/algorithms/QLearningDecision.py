@@ -1,5 +1,8 @@
-from game.TransitionManager import TransitionManager
-from game.BoardGame import BoardGame
+import sys
+sys.path.append('/Users/mathisdelsart/Desktop/Github-Repository/LINFO2275/Project1')
+
+from Game.TransitionManager import TransitionManager
+from Game.BoardGame import BoardGame
 
 import numpy as np # type: ignore
 

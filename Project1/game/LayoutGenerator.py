@@ -1,4 +1,4 @@
-from game.Enum import CellType
+from Game.Enum import CellType
 
 import numpy as np # type: ignore
 
