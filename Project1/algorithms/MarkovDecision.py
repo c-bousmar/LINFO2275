@@ -1,4 +1,5 @@
-from game import TransitionManager, BoardGame
+from Game.TransitionManager import TransitionManager
+from Game.BoardGame import BoardGame
 
 import numpy as np # type: ignore
     

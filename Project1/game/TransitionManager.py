@@ -111,15 +111,14 @@ class TransitionManager:
             - `CellType.BONUS`: Keeps the player at their current position but applies a status of `-1` (indicating a bonus).
             - Default case: No change in position or status.
         """
-        match state.cell_type:
-            case self.board.cell_types.RESTART:
-                return 0, 0
-            case self.board.cell_types.PENALTY:
-                return max(0, state.position - 3), 0
-            case self.board.cell_types.PRISON:
-                return state.position, 1
-            case self.board.cell_types.BONUS:
-                return state.position, -1
+        if state.cell_type == self.board.cell_types.RESTART:
+            return 0, 0
+        elif state.cell_type == self.board.cell_types.PENALTY:
+            return max(0, state.position - 3), 0
+        elif state.cell_type == self.board.cell_types.PRISON:
+            return state.position, 1
+        elif state.cell_type == self.board.cell_types.BONUS:
+            return state.position, -1
         return state.position, 0
 
     def get_next_position(self, position, step_size_move, offset):

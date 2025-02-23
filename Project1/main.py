@@ -1,5 +1,5 @@
-from algorithms import markovDecision, QLearningDecision
-
+from Algorithms.QLearningDecision import QLearningDecision
+from Algorithms.MarkovDecision import markovDecision
 
 if __name__ == '__main__':
     

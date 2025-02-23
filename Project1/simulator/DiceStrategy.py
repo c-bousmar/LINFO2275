@@ -1,7 +1,9 @@
-from algorithms import markovDecision, QLearningDecision
-from game import TransitionManager
-import numpy as np
+from Algorithms.QLearningDecision import QLearningDecision
+from Algorithms.MarkovDecision import markovDecision
 
+from Game.TransitionManager import TransitionManager
+
+import numpy as np
 
 class DiceStrategy:
     

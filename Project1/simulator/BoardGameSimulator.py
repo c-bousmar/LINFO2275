@@ -1,20 +1,20 @@
-from game import TransitionManager
+from Game.TransitionManager import TransitionManager
+
 import numpy as np
 import time
 import os
 import csv
 
-
 class BoardGameSimulator:
     
-    def __init__(self, board, dice_strategies, n_simulations=1000, save_path="results/"):
+    def __init__(self, board, dice_strategies, n_simulations=1000, save_path="Results/"):
         self.board = board 
         self.tm = TransitionManager(board)
         self.dice_strategies = dice_strategies
         self.n_simulations = n_simulations
         self.save_path = save_path
         os.makedirs(self.save_path, exist_ok=True)
-        self.csv_file = os.path.join(self.save_path, "results.csv")
+        self.csv_file = os.path.join(self.save_path, "simulations.csv")
         
         if not os.path.exists(self.csv_file):
             columns = ["Strategy", "Steps", "Elapsed_Time"] + \
