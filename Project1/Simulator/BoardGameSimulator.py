@@ -61,17 +61,24 @@ class BoardGameSimulator:
         all_expectations = []  
         with open(self.csv_file, mode='a', newline='') as file:
             writer = csv.writer(file)
+            sum_cost = [0] * 15
+            sum_steps = 0
             for _ in range(self.n_simulations):
                 start = time.time()
                 nb_steps, dice_policy, expectations = self.simulate_game(strategy)
                 end = time.time()
                 elapsed_time = end - start
-                all_expectations.append(expectations)
+                sum_steps += nb_steps
+                for i in range(14):
+                    sum_cost[i] += expectations[i]
                 row = [strategy_name, nb_steps, elapsed_time] + dice_policy + expectations + list(self.board.layout)
                 writer.writerow(row)
                 file.flush()
-        avg_expectations = np.mean(all_expectations, axis=0)
+                
+        avg_expectations = np.array(sum_cost) / self.n_simulations
+        avg_steps = sum_steps / self.n_simulations
         print("Mean Expectation for each cell :", avg_expectations)
+        print(f"Average number of steps to reach the goal: {avg_steps}")
     
     
     def get_cost_to_goal_state(self, position):
@@ -106,19 +113,17 @@ class BoardGameSimulator:
         """
         dice_sums = np.zeros(15)
         dice_counts = np.zeros(15)
-        exp_sums = np.zeros(15)
+
         exp_counts = np.zeros(15)
         
         state = self.board.states[0]
         steps = 0
         while state.position != self.board.last_cell:
-            die = strategy(state.position)       
+            die = strategy(state.position)
             move = die.roll()
             
             dice_sums[state.position] += die.type.value
             dice_counts[state.position] += 1
-            exp_sums[state.position] += self.get_cost_to_goal_state(state.position)
-            exp_counts[state.position] += 1
             
             offsets = [0, 8] if (state.position + 1 == self.board.slow_lane.start) else [0]
             offset = np.random.choice(offsets)
@@ -130,16 +135,17 @@ class BoardGameSimulator:
 
             state = self.board.states[new_position]
             steps += 1
-            
-        mask = dice_counts > 0
+
+            exp_counts[state.position] += 1
         
+        mask = dice_counts > 0
         dice_policy = np.zeros_like(dice_sums)
-        expectations = np.zeros_like(exp_sums)
-
         dice_policy[mask] = dice_sums[mask] / dice_counts[mask]
-        expectations[mask] = exp_sums[mask] / exp_counts[mask]
+        
+        expectations = np.zeros(14)
+        for i in range(14):
+            if exp_counts[i] > 0:
+                expectations[i] = self.get_cost_to_goal_state(i)
 
-        dice_policy = dice_policy.tolist()
-        expectations = expectations.tolist()
 
-        return steps, dice_policy, expectations
+        return steps, dice_policy.tolist(), expectations.tolist()

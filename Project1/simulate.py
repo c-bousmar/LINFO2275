@@ -10,7 +10,7 @@ layouts_properties = {"Layout 1" : [0.0, 0.1, 0.05, 0.4],
                       "Layout 4" : [0.0, 0.1, 0.3, 0.0],
 }
 
-layouts = [[0, 2, 3, 2, 0, 2, 2, 0, 1, 0, 0, 3, 1, 3, 0]]
+layouts = [[1]*15]
 
 strategy_names = ["Optimal_MDP"]
 
@@ -27,5 +27,5 @@ if __name__ == "__main__":
         board = BoardGame(layout, circle)
         dice_strategy = DiceStrategy(board, strategy_names)
         board.display_board()
-        game_simulator = BoardGameSimulator(board, dice_strategy, n_simulations=10)
+        game_simulator = BoardGameSimulator(board, dice_strategy, n_simulations=10000)
         game_simulator.compare_strategies()
