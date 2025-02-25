@@ -6,8 +6,22 @@ import os
 import csv
 
 class BoardGameSimulator:
+    """
+    Simulates multiple games on a board using different dice strategies.
+    Records simulation results, including steps taken, elapsed time, dice policies, and expectations.
+    Results are saved to a CSV file for further analysis.
+    """
     
     def __init__(self, board, dice_strategies, n_simulations=1000, save_path="Results/"):
+        """
+        Initializes the simulator with a board, dice strategies, and simulation settings.
+
+        Args:
+            board (BoardGame): The game board to simulate on.
+            dice_strategies (DiceStrategies): A collection of strategies for choosing dice.
+            n_simulations (int): Number of simulations to run for each strategy.
+            save_path (str): Directory to save simulation results.
+        """
         self.board = board 
         self.tm = TransitionManager(board)
         self.dice_strategies = dice_strategies
@@ -25,13 +39,25 @@ class BoardGameSimulator:
                     writer = csv.writer(file)
                     writer.writerow(columns)
 
+
     def compare_strategies(self):
+        """
+        Runs simulations for all strategies and saves the results to a CSV file.
+        """
         for strategy_name, strategy in self.dice_strategies.strategies.items():
             print(f"Running simulations for strategy: {strategy_name}")
             self.run_simulations(strategy, strategy_name)
             print(f"Completed: {strategy_name}\n")
     
+    
     def run_simulations(self, strategy, strategy_name):
+        """
+        Runs multiple simulations for a given strategy and records the results.
+
+        Args:
+            strategy (function): The strategy function to use for choosing dice.
+            strategy_name (str): Name of the strategy (for logging and saving results).
+        """
         all_expectations = []  
         with open(self.csv_file, mode='a', newline='') as file:
             writer = csv.writer(file)
@@ -45,16 +71,39 @@ class BoardGameSimulator:
                 writer.writerow(row)
                 file.flush()
         avg_expectations = np.mean(all_expectations, axis=0)
-        print("Moyenne des expectations pour chaque position :", avg_expectations)
+        print("Mean Expectation for each cell :", avg_expectations)
+    
     
     def get_cost_to_goal_state(self, position):
+        """
+        Estimates the cost (number of steps) to reach the goal state from the current position.
+
+        Args:
+            position (int): Current position on the board.
+
+        Returns:
+            int: Estimated number of steps to reach the goal.
+        """
         self.board.fast_lane
         if position in self.board.fast_lane:
             return self.board.last_cell - position
         else:
             return self.board.slow_lane.stop - position
+    
                 
     def simulate_game(self, strategy):
+        """
+        Simulates a single game using the given strategy.
+
+        Args:
+            strategy (function): The strategy function to use for choosing dice.
+
+        Returns:
+            tuple: A tuple containing:
+                - steps (int): Total steps taken to complete the game.
+                - dice_policy (list): Average dice type used at each position.
+                - expectations (list): Average expected cost to reach the goal from each position.
+        """
         dice_sums = np.zeros(15)
         dice_counts = np.zeros(15)
         exp_sums = np.zeros(15)
