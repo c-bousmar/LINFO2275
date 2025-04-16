@@ -1,4 +1,4 @@
-import pandas as pd
+from datasets_utils import get_dataset_from_domain
 
 from tqdm import tqdm
 
@@ -7,45 +7,6 @@ import seaborn as sns
 
 from sklearn.metrics import accuracy_score, confusion_matrix
 import numpy as np
-
-def get_dataset_from_domain(dataset_path, domain_number):
-    """
-    Load and filter dataset by domain, with appropriate target type casting.
-
-    This function reads the dataset from the specified path, filters it based on
-    the provided domain number, and ensures the 'target' column is correctly
-    cast to the expected data type depending on the domain:
-        - Domain 1: targets are integers
-        - Domain 4: targets are strings
-
-    Parameters
-    ----------
-    dataset_path : str
-        Path to the CSV dataset file.
-    domain_number : int
-        Domain identifier to filter the dataset (1 or 4 supported).
-
-    Returns
-    -------
-    pandas.DataFrame or None
-        Filtered DataFrame with correct 'target' column types if domain is valid;
-        otherwise, returns None and prints an error.
-
-    Notes
-    -----
-    - Only domain 1 and domain 4 are currently supported.
-    - If an unsupported domain is provided, the function will return None.
-    """
-    df = pd.read_csv(dataset_path)
-    df = df[df['domain'] == domain_number]
-    if (domain_number == 1):
-        df['target'] = df['target'].astype(int)
-    elif (domain_number == 4):
-        df['target'] = df['target'].astype(str)
-    else:
-        print("Error - Only Domain 1 and 4 Available for now.")
-        return None
-    return df
 
 def user_independent_score(model, domain_number=1, verbose=True):
     """
