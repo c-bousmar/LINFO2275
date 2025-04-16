@@ -1,7 +1,7 @@
-from Algorithms.QLearningDecision import QLearningDecision
-from Algorithms.MarkovDecision import markovDecision
+from algorithms.QLearningDecision import QLearningDecision
+from algorithms.MarkovDecision import markovDecision
 
-from Game.TransitionManager import TransitionManager
+from game.TransitionManager import TransitionManager
 
 import numpy as np
 
@@ -25,12 +25,12 @@ class DiceStrategy:
         self.optimal_QLearning_policy = None
         self.possible_strategies = {
             "Optimal_MDP" : self.optimal_MDP_strategy,
-            # "Optimal_QLearning" : self.optimal_QLearning_strategy,
-            # "Always_Security" : self.always_choose_security,
-            # "Always_Normal" : self.always_choose_normal,
-            # "Always_Risky" : self.always_choose_risky,
-            # "Random" : self.random_strategy,
-            # "Risky_Then_Cautious" : self.risky_then_cautious
+            "Optimal_QLearning" : self.optimal_QLearning_strategy,
+            "Always_Security" : self.always_choose_security,
+            "Always_Normal" : self.always_choose_normal,
+            "Always_Risky" : self.always_choose_risky,
+            "Random" : self.random_strategy,
+            "Risky_Then_Cautious" : self.risky_then_cautious
         }
         
         if strategy_names == None:

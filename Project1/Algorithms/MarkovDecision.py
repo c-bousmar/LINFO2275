@@ -1,5 +1,5 @@
-from Game.TransitionManager import TransitionManager
-from Game.BoardGame import BoardGame
+from game.TransitionManager import TransitionManager
+from game.BoardGame import BoardGame
 
 import numpy as np
 

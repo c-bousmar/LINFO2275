@@ -1,151 +1,99 @@
-from Game.TransitionManager import TransitionManager
+from algorithms import QLearningDecision
+from algorithms import markovDecision
+
+from game import TransitionManager
 
 import numpy as np
-import time
-import os
-import csv
 
-class BoardGameSimulator:
+class DiceStrategy:
     """
-    Simulates multiple games on a board using different dice strategies.
-    Records simulation results, including steps taken, elapsed time, dice policies, and expectations.
-    Results are saved to a CSV file for further analysis.
+    Defines various dice selection strategies for a board game. 
+    Strategies determine which dice to roll at each position on the board.
     """
     
-    def __init__(self, board, dice_strategies, n_simulations=1000, save_path="Results/"):
+    def __init__(self, board, strategy_names=None):
         """
-        Initializes the simulator with a board, dice strategies, and simulation settings.
-
+        Initializes the DiceStrategy class with available strategies.
+        
         Args:
-            board (BoardGame): The game board to simulate on.
-            dice_strategies (DiceStrategies): A collection of strategies for choosing dice.
-            n_simulations (int): Number of simulations to run for each strategy.
-            save_path (str): Directory to save simulation results.
+            board (BoardGame): The board game instance.
+            strategy_names (list, optional): A list of strategy names to use. Defaults to None (all strategies).
         """
-        self.board = board 
+        self.board = board
         self.tm = TransitionManager(board)
-        self.dice_strategies = dice_strategies
-        self.n_simulations = n_simulations
-        self.save_path = save_path
-        os.makedirs(self.save_path, exist_ok=True)
-        self.csv_file = os.path.join(self.save_path, "simulations.csv")
+        self.optimal_MDP_policy = None
+        self.optimal_QLearning_policy = None
+        self.possible_strategies = {
+            "Optimal_MDP" : self.optimal_MDP_strategy,
+            "Optimal_QLearning" : self.optimal_QLearning_strategy,
+            "Always_Security" : self.always_choose_security,
+            "Always_Normal" : self.always_choose_normal,
+            "Always_Risky" : self.always_choose_risky,
+            "Random" : self.random_strategy
+        }
         
-        if not os.path.exists(self.csv_file):
-            columns = ["Strategy", "Steps", "Elapsed_Time"] + \
-                        [f"Dice_{i}" for i in range(15)] + \
-                        [f"Exp_{i}" for i in range(15)] + \
-                        [f"Layout_{i}" for i in range(15)]
-            with open(self.csv_file, mode='w', newline='') as file:
-                    writer = csv.writer(file)
-                    writer.writerow(columns)
-
-
-    def compare_strategies(self):
-        """
-        Runs simulations for all strategies and saves the results to a CSV file.
-        """
-        for strategy_name, strategy in self.dice_strategies.strategies.items():
-            print(f"Running simulations for strategy: {strategy_name}")
-            self.run_simulations(strategy, strategy_name)
-            print(f"Completed: {strategy_name}\n")
-    
-    
-    def run_simulations(self, strategy, strategy_name):
-        """
-        Runs multiple simulations for a given strategy and records the results.
-
-        Args:
-            strategy (function): The strategy function to use for choosing dice.
-            strategy_name (str): Name of the strategy (for logging and saving results).
-        """
-        all_expectations = []  
-        with open(self.csv_file, mode='a', newline='') as file:
-            writer = csv.writer(file)
-            sum_cost = [0] * 15
-            sum_steps = 0
-            for _ in range(self.n_simulations):
-                start = time.time()
-                nb_steps, dice_policy, expectations = self.simulate_game(strategy)
-                end = time.time()
-                elapsed_time = end - start
-                sum_steps += nb_steps
-                for i in range(14):
-                    sum_cost[i] += expectations[i]
-                row = [strategy_name, nb_steps, elapsed_time] + dice_policy + expectations + list(self.board.layout)
-                writer.writerow(row)
-                file.flush()
-                
-        avg_expectations = np.array(sum_cost) / self.n_simulations
-        avg_steps = sum_steps / self.n_simulations
-        print("Mean Expectation for each cell :", avg_expectations)
-        print(f"Average number of steps to reach the goal: {avg_steps}")
-    
-    
-    def get_cost_to_goal_state(self, position):
-        """
-        Estimates the cost (number of steps) to reach the goal state from the current position.
-
-        Args:
-            position (int): Current position on the board.
-
-        Returns:
-            int: Estimated number of steps to reach the goal.
-        """
-        self.board.fast_lane
-        if position in self.board.fast_lane:
-            return self.board.last_cell - position
+        if strategy_names == None:
+            self.strategies = self.possible_strategies
+            self.optimal_MDP_policy = markovDecision(self.board.layout, self.board.circle)[1]
+            self.optimal_QLearning_policy = QLearningDecision(self.board.layout, self.board.circle)[1]
         else:
-            return self.board.slow_lane.stop - position
+            self.strategies = {}
+            for strategy_name in strategy_names:
+                if strategy_name in self.possible_strategies:
+                    if strategy_name == "Optimal_MDP": self.optimal_MDP_policy = markovDecision(self.board.layout, self.board.circle)[1]
+                    if strategy_name == "Optimal_QLearning": self.optimal_QLearning_policy = QLearningDecision(self.board.layout, self.board.circle)[1]
+                    self.strategies[strategy_name] = self.possible_strategies[strategy_name]
+        
+    def always_choose_security(self, position):
+        """
+        Always selects the security die.
+        Returns: Die: The security die.
+        """
+        for die in self.board.dice:
+            if die.type == self.board.dice_types.SECURITY:
+                return die
+
+    def always_choose_normal(self, position):
+        """
+        Always selects the normal die.
+        Returns: Die: The normal die.
+        """
+        for die in self.board.dice:
+            if die.type == self.board.dice_types.NORMAL:
+                return die
+
+    def always_choose_risky(self, position):
+        """
+        Always selects the risky die.
+        Returns: Die: The risky die.
+        """
+        for die in self.board.dice:
+            if die.type == self.board.dice_types.RISKY:
+                return die
+
+    def random_strategy(self, position):
+        """
+        Selects a die randomly.
+        Returns: Die: A randomly chosen die.
+        """
+        return np.random.choice(self.board.dice)
+
+    def optimal_MDP_strategy(self, position):
+        """
+        Uses the optimal strategy computed by Markov Decision Process (MDP).
+        Returns: Die: The die chosen according to the optimal MDP policy.
+        """
+        type_die = self.board.dice_types(self.optimal_MDP_policy[position])
+        for die in self.board.dice:
+            if die.type == type_die:
+                return die
     
-                
-    def simulate_game(self, strategy):
+    def optimal_QLearning_strategy(self, position):
         """
-        Simulates a single game using the given strategy.
-
-        Args:
-            strategy (function): The strategy function to use for choosing dice.
-
-        Returns:
-            tuple: A tuple containing:
-                - steps (int): Total steps taken to complete the game.
-                - dice_policy (list): Average dice type used at each position.
-                - expectations (list): Average expected cost to reach the goal from each position.
+        Uses the optimal strategy computed by Q-Learning.
+        Returns: Die: The die chosen according to the optimal Q-learning policy.
         """
-        dice_sums = np.zeros(15)
-        dice_counts = np.zeros(15)
-
-        exp_counts = np.zeros(15)
-        
-        state = self.board.states[0]
-        steps = 0
-        while state.position != self.board.last_cell:
-            die = strategy(state.position)
-            move = die.roll()
-            
-            dice_sums[state.position] += die.type.value
-            dice_counts[state.position] += 1
-            
-            offsets = [0, 8] if (state.position + 1 == self.board.slow_lane.start) else [0]
-            offset = np.random.choice(offsets)
-            new_position = self.tm.get_next_position(state.position, move, offset)
-            new_state = self.board.states[new_position]
-            if die.is_triggering_event():
-                new_position, extra_cost = self.tm.handling_events(new_state)
-                steps += extra_cost
-
-            state = self.board.states[new_position]
-            steps += 1
-
-            exp_counts[state.position] += 1
-        
-        mask = dice_counts > 0
-        dice_policy = np.zeros_like(dice_sums)
-        dice_policy[mask] = dice_sums[mask] / dice_counts[mask]
-        
-        expectations = np.zeros(14)
-        for i in range(14):
-            if exp_counts[i] > 0:
-                expectations[i] = self.get_cost_to_goal_state(i)
-
-
-        return steps, dice_policy.tolist(), expectations.tolist()
+        type_die = self.board.dice_types(self.optimal_QLearning_policy[position])
+        for die in self.board.dice:
+            if die.type == type_die:
+                return die

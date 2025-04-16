@@ -1,8 +1,8 @@
-from Game.LayoutGenerator import LayoutGenerator
-from Game.BoardGame import BoardGame
+from game.LayoutGenerator import LayoutGenerator
+from game.BoardGame import BoardGame
 
-from Simulator.BoardGameSimulator import BoardGameSimulator
-from Simulator.DiceStrategy import DiceStrategy
+from simulator.BoardGameSimulator import BoardGameSimulator
+from simulator.DiceStrategy import DiceStrategy
 
 layouts_properties = {"Layout 1" : [0.0, 0.1, 0.05, 0.4],
                       "Layout 2" : [0.0, 0.3, 0.0, 0.0],
