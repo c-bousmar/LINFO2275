@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def euclidean_distance(seq1, seq2):
     """
     Calculate the Euclidean distance between two sequences of points.
@@ -25,12 +26,13 @@ def euclidean_distance(seq1, seq2):
     - Each point in the sequence must be represented as a numpy array or list (e.g., 2D arrays like [x, y, z]).
     """
     n = len(seq1)
-    
+
     total_distance = 0.0
     for i in range(n):
         total_distance += np.linalg.norm(seq1[i] - seq2[i])
 
     return total_distance
+
 
 def DTW(x, y):
     """
@@ -61,25 +63,25 @@ def DTW(x, y):
     n, m = len(x), len(y)
 
     dtw_matrix = np.zeros((n + 1, m + 1))
-    
+
     dtw_matrix[1:, 0] = np.inf
     dtw_matrix[0, 1:] = np.inf
-    
+
     for i in range(1, n + 1):
         for j in range(1, m + 1):
-            
             i_minus = i - 1
             j_minus = j - 1
-            
+
             cost = euclidean_distance(x[i_minus], y[j_minus])
-            
+
             min_cost = min([dtw_matrix[i_minus, j],
                             dtw_matrix[i, j_minus],
                             dtw_matrix[i_minus, j_minus]])
-            
+
             dtw_matrix[i, j] = cost + min_cost
-    
+
     return dtw_matrix[n, m]
+
 
 def edit_distance(seq1, seq2):
     """
@@ -108,21 +110,21 @@ def edit_distance(seq1, seq2):
     - A cost of 1 is assigned for substitutions when two elements are not equal, and 0 if they are equal.
     """
     n, m = len(seq1), len(seq2)
-    
+
     dp = np.zeros((n + 1, m + 1), dtype=int)
 
     for i in range(n + 1):
         dp[i][0] = i
-        
+
     for j in range(m + 1):
         dp[0][j] = j
 
     for i in range(1, n + 1):
         for j in range(1, m + 1):
-            
+
             i_minus = i - 1
             j_minus = j - 1
-            
+
             if i_minus >= 0 and j_minus >= 0:
                 cost = 0 if np.allclose(seq1[i_minus], seq2[j_minus], atol=1e-8) else 1
             else:
@@ -133,5 +135,51 @@ def edit_distance(seq1, seq2):
                 dp[i][j_minus] + 1,
                 dp[i_minus][j_minus] + cost
             )
-    
+
     return dp[n][m]
+
+
+def lcs_length(seq1, seq2):
+    """
+    Computes the length of the Longest Common Subsequence (LCS) between two sequences (Theodoridis et al., 2009).
+
+    This function uses dynamic programming to compute the length of the LCS between two
+    symbol sequences (here resulting from vector quantization of 3D gestures).
+
+    Args:
+        seq1 (list of str): The first symbolic sequence.
+        seq2 (list of str): The second symbolic sequence.
+
+    Returns:
+        int: The length of the longest common subsequence between the two sequences.
+    """
+    m, n = len(seq1), len(seq2)
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+    for i in range(m):
+        for j in range(n):
+            if seq1[i] == seq2[j]:
+                dp[i + 1][j + 1] = dp[i][j] + 1
+            else:
+                dp[i + 1][j + 1] = max(dp[i][j + 1], dp[i + 1][j])
+    return dp[m][n]
+
+
+def lcs_distance(seq1, seq2):
+    """
+    Computes the normalized Longest Common Subsequence (LCS) distance between two sequences.
+
+    The distance is defined as:
+        1 - LCS(seq1, seq2) / max(len(seq1), len(seq2))
+    It ranges from 0 (identical) to 1 (no common subsequence).
+
+    Args:
+        seq1 (list of str): The first symbolic sequence.
+        seq2 (list of str): The second symbolic sequence.
+
+    Returns:
+        float: The normalized LCS distance between the two sequences.
+    """
+    if not seq1 and not seq2:
+        return 0.0
+    return 1.0 - lcs_length(seq1, seq2) / max(len(seq1), len(seq2))
+
