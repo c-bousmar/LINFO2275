@@ -31,7 +31,7 @@ def get_dataset_from_domain(dataset_path, domain_number):
     - Only domain 1 and domain 4 are currently supported.
     - If an unsupported domain is provided, the function will return None.
     """
-    df = pd.read_csv(dataset_path)
+    df = pd.read_csv(dataset_path, low_memory=False)
     df = df[df['domain'] == domain_number]
     if (domain_number == 1):
         df['target'] = df['target'].astype(int)
