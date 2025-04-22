@@ -1,3 +1,5 @@
+from tqdm import tqdm
+
 from distance_metrics import euclidean_distance
 
 from collections import Counter
@@ -27,7 +29,7 @@ class KNN_Classifier:
         if self.k > len(self.X_train):
             self.k = len(self.X_train)
     
-    def predict(self, X_test):
+    def predict(self, X_test, verbose=False):
         if self.X_train is None or self.y_train is None:
             raise ValueError("You must fit the model before predicting.")
 
@@ -37,11 +39,15 @@ class KNN_Classifier:
         predictions = []
         
         # Iterate over each test sample (to predict)
-        for test_sample in X_test:
+        outer_iter = tqdm(X_test, desc="Predicting", unit="sample", position=0) if verbose else X_test
+        for test_sample in outer_iter:
             distances = []
             
             # Iterate over each train sample (to compute distance with the test sample)
-            for train_sample, label in zip(self.X_train, self.y_train):
+            inner_iter = zip(self.X_train, self.y_train)
+            if verbose:
+                inner_iter = tqdm(inner_iter, total=len(self.X_train), desc="Comparing", position=1, leave=False)
+            for train_sample, label in inner_iter:
                 dist = self.distance_function(test_sample, train_sample)
                 distances.append((dist, label))
             
