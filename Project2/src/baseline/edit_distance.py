@@ -1,18 +1,22 @@
+import sys
+import os
+sys.path.append(os.path.abspath('../'))
+
 import numpy as np
-import pandas as pd
 from sklearn.cluster import KMeans
-from sklearn.model_selection import KFold
 from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import StandardScaler
 from datasets_utils import get_dataset_from_domain
 from sklearn.model_selection import train_test_split
-from KNN import KNN_Classifier
+from KNN_Classifier import KNN_Classifier
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, accuracy_score
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA
 
+#######################################################
+### To Remove (Duplication inside distance_metrics.py)
+###
 
 def edit_distance(s1, s2):
     if len(s1) < len(s2):
@@ -86,7 +90,7 @@ def gesture_classification(X, y, n_clusters=2):
 
 if __name__ == "__main__":
 
-    X, y = load_data("LINFO2275/Project2/Data/dataset.csv")
+    X, y = load_data("../Data/dataset.csv")
 
     h_params = {
         'n_clusters': 6,

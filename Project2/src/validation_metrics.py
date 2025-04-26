@@ -8,6 +8,7 @@ import seaborn as sns
 from sklearn.metrics import accuracy_score, confusion_matrix
 import numpy as np
 
+
 def user_independent_score(model, domain_number=1, verbose=True):
     """
     Evaluate model performance using leave-one-user-out cross-validation.

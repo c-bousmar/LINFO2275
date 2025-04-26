@@ -1,40 +1,40 @@
 import numpy as np
 
-
-def euclidean_distance(seq1, seq2):
+def euclidean_distance(sequence1, sequence2):
     """
-    Calculate the Euclidean distance between two sequences of points.
-
-    This function computes the Euclidean distance between two sequences `seq1` and `seq2`. 
-    Each sequence is a list of points (or vectors), where each point is a vector in an N-dimensional space.
+    Calculate the Euclidean distance between two sequences.
     
-    Parameters
-    ----------
-    seq1 : list or np.ndarray
-        The first sequence of points (e.g., a list of vectors or 2D numpy array).
-    seq2 : list or np.ndarray
-        The second sequence of points (e.g., a list of vectors or 2D numpy array).
-
-    Returns
-    -------
+    For sequences of different lengths, this function computes the sum of 
+    Euclidean distances between corresponding points up to the length of
+    the shorter sequence. This provides a way to compare sequences of
+    different lengths while still capturing meaningful distance information.
+    
+    Parameters:
+    -----------
+    sequence1 : array-like
+        First sequence of points, with shape (n_points, n_dimensions)
+    sequence2 : array-like
+        Second sequence of points, with shape (m_points, n_dimensions)
+    
+    Returns:
+    --------
     float
-        The Euclidean distance between `seq1` and `seq2`.
-
-    Notes
-    -----
-    - The function assumes that `seq1` and `seq2` are sequences (lists or numpy arrays) of points/vectors.
-    - Each point in the sequence must be represented as a numpy array or list (e.g., 2D arrays like [x, y, z]).
+        The Euclidean distance between the two sequences
     """
-    n = len(seq1)
-
-    total_distance = 0.0
-    for i in range(n):
-        total_distance += np.linalg.norm(seq1[i] - seq2[i])
-
+    sequence1 = np.asarray(sequence1)
+    sequence2 = np.asarray(sequence2)
+    
+    min_length = min(len(sequence1), len(sequence2))
+    
+    seq1 = sequence1[:min_length]
+    seq2 = sequence2[:min_length]
+    
+    point_distances = np.sqrt(np.sum((seq1 - seq2) ** 2, axis=1))
+    total_distance = np.sum(point_distances)
+    
     return total_distance
 
-
-def DTW(x, y):
+def dtw_distance(seq1, seq2):
     """
     Compute the Dynamic Time Warping (DTW) distance between two sequences.
 
@@ -44,9 +44,9 @@ def DTW(x, y):
 
     Parameters
     ----------
-    x : np.ndarray
+    seq1 : np.ndarray
         A 2D numpy array representing the first sequence.
-    y : np.ndarray
+    seq2 : np.ndarray
         A 2D numpy array representing the second sequence.
 
     Returns
@@ -56,27 +56,31 @@ def DTW(x, y):
     
     Notes
     -----
-    - The function assumes that `x` and `y` are two 2D numpy arrays, where each row represents
+    - The function assumes that `seq1` and `seq2` are two 2D numpy arrays, where each row represents
       a point in a sequence (e.g., `(x1, y1, z1)` for the first sequence).
     - It uses Euclidean distance as the metric for calculating the local cost between points.
     """
-    n, m = len(x), len(y)
+    n, m = len(seq1), len(seq2)
 
+    # dtw_matrix[i][j] = minimum cost to align x[:i] with y[:j]
     dtw_matrix = np.zeros((n + 1, m + 1))
 
+    dtw_matrix[0, 0] = 0
     dtw_matrix[1:, 0] = np.inf
     dtw_matrix[0, 1:] = np.inf
 
+    # Loop over each cell of the matrix
     for i in range(1, n + 1):
         for j in range(1, m + 1):
             i_minus = i - 1
             j_minus = j - 1
 
-            cost = euclidean_distance(x[i_minus], y[j_minus])
-
-            min_cost = min([dtw_matrix[i_minus, j],
-                            dtw_matrix[i, j_minus],
-                            dtw_matrix[i_minus, j_minus]])
+            # Euclidean distance between the two points
+            cost = np.linalg.norm(seq1[i_minus] - seq2[j_minus])
+            
+            min_cost = min([dtw_matrix[i_minus, j],         # insertion (move inside seq1)
+                            dtw_matrix[i, j_minus],         # deletion (move inside seq2)
+                            dtw_matrix[i_minus, j_minus]])  # match (move in both seq1 and seq2)
 
             dtw_matrix[i, j] = cost + min_cost
 
@@ -109,34 +113,18 @@ def edit_distance(seq1, seq2):
     - The function uses dynamic programming to compute the minimum number of edit operations.
     - A cost of 1 is assigned for substitutions when two elements are not equal, and 0 if they are equal.
     """
-    n, m = len(seq1), len(seq2)
-
-    dp = np.zeros((n + 1, m + 1), dtype=int)
-
-    for i in range(n + 1):
-        dp[i][0] = i
-
-    for j in range(m + 1):
-        dp[0][j] = j
-
-    for i in range(1, n + 1):
-        for j in range(1, m + 1):
-
-            i_minus = i - 1
-            j_minus = j - 1
-
-            if i_minus >= 0 and j_minus >= 0:
-                cost = 0 if np.allclose(seq1[i_minus], seq2[j_minus], atol=1e-8) else 1
-            else:
-                cost = 1
-
-            dp[i][j] = min(
-                dp[i_minus][j] + 1,
-                dp[i][j_minus] + 1,
-                dp[i_minus][j_minus] + cost
-            )
-
-    return dp[n][m]
+    if len(seq1) < len(seq2):
+        return edit_distance(seq2, seq1)
+    previous = list(range(len(seq2) + 1))
+    for i, c1 in enumerate(seq1):
+        current = [i + 1]
+        for j, c2 in enumerate(seq2):
+            insertions = previous[j + 1] + 1
+            deletions = current[j] + 1
+            substitutions = previous[j] + (c1 != c2)
+            current.append(min(insertions, deletions, substitutions))
+        previous = current
+    return previous[-1]
 
 
 def lcs_length(seq1, seq2):
@@ -182,4 +170,3 @@ def lcs_distance(seq1, seq2):
     if not seq1 and not seq2:
         return 0.0
     return 1.0 - lcs_length(seq1, seq2) / max(len(seq1), len(seq2))
-
