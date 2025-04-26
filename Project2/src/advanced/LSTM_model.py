@@ -18,21 +18,6 @@ from tqdm import tqdm
 from datasets_utils import get_dataset_from_domain
 
 
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Dense, Dropout, LSTM, Bidirectional, Input
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
-
-from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
-from sklearn.preprocessing import LabelEncoder
-
-from tqdm import tqdm
-
-from datasets_utils import get_dataset_from_domain
-
 def create_lstm_model(input_shape, num_classes):
     inputs = Input(shape=input_shape)
     
