@@ -1,6 +1,22 @@
 import sys
 import os
-sys.path.append(os.path.abspath('../'))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Dense, Dropout, LSTM, Bidirectional, Input
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
+
+from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
+from sklearn.preprocessing import LabelEncoder
+
+from tqdm import tqdm
+
+from datasets_utils import get_dataset_from_domain
+
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -192,7 +208,8 @@ def user_independent_lstm_score(domain_number=1, epochs=50, batch_size=32, verbo
         plt.ylabel('True Label')
         plt.xlabel('Predicted Label')
         plt.tight_layout()
-        plt.show()
+        plt.savefig("advanced/results/lstm_model_confusion_matrix.pdf", format="pdf")
+        plt.close()
     
     # Return results
     return {

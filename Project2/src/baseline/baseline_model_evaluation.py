@@ -1,6 +1,6 @@
 import sys
 import os
-sys.path.append(os.path.abspath('../'))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import numpy as np
 import pandas as pd
@@ -159,8 +159,8 @@ def user_independent_score_knn(model, domain_number=1, distance_type="dtw", verb
         plt.ylabel('True Label')
         plt.xlabel('Predicted Label')
         plt.tight_layout()
-        plt.savefig(f'results/knn_{distance_type}_user_independent_domain{domain_number}.png')
-        plt.show()
+        plt.savefig(f'baseline/results/knn_{distance_type}_user_independent_domain{domain_number}.pdf', format="pdf")
+        plt.close()
     
     # Return results
     return {
@@ -325,8 +325,8 @@ def user_dependent_score_knn(model, domain_number=1, distance_type="dtw", verbos
         plt.ylabel('True Label')
         plt.xlabel('Predicted Label')
         plt.tight_layout()
-        plt.savefig(f'results/knn_{distance_type}_user_dependent_domain{domain_number}.png')
-        plt.show()
+        plt.savefig(f'baseline/results/knn_{distance_type}_user_dependent_domain{domain_number}.pdf', format="pdf")
+        plt.close()
     
     # Return results
     return {
@@ -462,7 +462,7 @@ def plot_baseline_comparison(results, domain_number):
     plt.grid(axis='y', alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig(f'results/baseline_comparison_domain{domain_number}.png')
+    plt.savefig(f'baseline/results/baseline_comparison_domain{domain_number}.pdf', format="pdf")
     plt.show()
 
 if __name__ == "__main__":

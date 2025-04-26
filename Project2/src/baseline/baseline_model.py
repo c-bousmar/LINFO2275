@@ -1,6 +1,6 @@
 import sys
 import os
-sys.path.append(os.path.abspath('../'))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import argparse
 import pandas as pd
@@ -58,7 +58,7 @@ def plot_confusion_matrix(cm, labels, output_path):
     plt.xlabel("Predicted")
     plt.ylabel("Actual")
     plt.tight_layout()
-    plt.savefig(output_path, bbox_inches='tight')
+    plt.savefig(output_path, bbox_inches='tight', format="pdf")
     plt.close()
 
 
@@ -69,7 +69,7 @@ def main():
     parser.add_argument("--distance", choices=["dtw", "edit", "lcs"], default="lcs",
                         help="Distance metric to use: 'dtw', 'edit', or 'lcs' (default: lcs).")
     parser.add_argument("--domain", type=int, default=1, help="Domain ID of the dataset (only for DTW).")
-    parser.add_argument("--output", type=str, default="../results/confusion_matrix.png", help="Output image path.")
+    parser.add_argument("--output", type=str, default="baseline/results/confusion_matrix.pdf", help="Output image path.")
     args = parser.parse_args()
 
     # Select distance function based on argument
