@@ -18,7 +18,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from datasets_utils import get_dataset_from_domain
 
 class DollarOne3DRecognizer:
-    def __init__(self, num_points=64):
+    def __init__(self, num_points=100):
         self.num_points = num_points
         self.pca = PCA(n_components=2)
         self.templates = []
@@ -127,7 +127,7 @@ def evaluate_user_independent(X, y, users):
         acc = accuracy_score(y[test_mask], y_pred)
         accuracies.append(acc)
     
-    filename = "./Project2/src/advanced/results/features_user_independent_$1_DTW_domain1.pdf"
+    filename = "advanced/results/features_user_independent_$1_DTW_domain1.pdf"
     plot_confusion_matrix(np.array(y_true_all), np.array(y_pred_all), np.unique(y),filename)
     
     return np.mean(accuracies), np.std(accuracies)
@@ -161,7 +161,7 @@ def evaluate_user_dependent(X, y, users):
         acc = accuracy_score(y[test_mask], y_pred)
         accuracies.append(acc)
     
-    filename = f'./Project2/src/advanced/results/features_user_dependent_$1_DTW_domain1.pdf'
+    filename = f'advanced/results/features_user_dependent_$1_DTW_domain1.pdf'
     plot_confusion_matrix(np.array(y_true_all), np.array(y_pred_all), np.unique(y),filename)
     
     return np.mean(accuracies), np.std(accuracies)
@@ -180,7 +180,7 @@ def load_data(file_path):
 
 
 if __name__ == "__main__":
-    X, y, users = load_data("/Users/leoncelamien/Desktop/LINFO2275/Project2/Data/dataset.csv")
+    X, y, users = load_data("../Data/dataset.csv")
     
     mean_acc, std_acc = evaluate_user_independent(X, y, users)
     print(f"\nUser-Independent → Accuracy: {mean_acc:.2%} ± {std_acc:.2%}")

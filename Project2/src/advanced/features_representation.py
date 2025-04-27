@@ -6,31 +6,32 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm import tqdm
-
 from scipy.stats import skew, kurtosis
 
-from sklearn.linear_model import LogisticRegression
+from hmmlearn import hmm
 from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
 from datasets_utils import get_dataset_from_domain
 
+
 def prepare_gesture_sequences(df, normalize=True):
-    # Group the dataset by several features : subject_id, target and trial_id
+    """Prepare gesture sequences from the dataframe."""
     gesture_groups = df.groupby(['subject_id', 'target', 'trial_id'])
-    sequences, labels, subject_ids, trial_ids= [], [], [], []
+    sequences = []
+    labels = []
+    subject_ids = []
+    trial_ids = []
     
     for (subject_id, target, trial_id), group in gesture_groups:
-        # Sort the sequences by time and get the coordinates only
+        # Sort by time and get coordinates
         sequence = group.sort_values('<t>')[['<x>', '<y>', '<z>']].values
         
         # Normalize if requested
         if normalize:
-            min_vals = np.min(sequence, axis=0)
-            max_vals = np.max(sequence, axis=0)
-            range_vals = np.maximum(max_vals - min_vals, 1e-10)
-            sequence = (sequence - min_vals) / range_vals
+            # Z-score normalization for HMM
+            scaler = StandardScaler()
+            sequence = scaler.fit_transform(sequence)
         
         sequences.append(sequence)
         labels.append(target)
@@ -41,6 +42,7 @@ def prepare_gesture_sequences(df, normalize=True):
 
 
 def extract_features_from_gesture(sequence):
+    """Extract statistical features from a gesture sequence."""
     # Basic Statistic Values
     mean = np.mean(sequence, axis=0)
     std = np.std(sequence, axis=0)
@@ -106,18 +108,165 @@ def extract_features_from_gesture(sequence):
 
 
 def extract_features_from_all_gestures(sequences):
+    """Extract features from a list of gesture sequences."""
     return [extract_features_from_gesture(sequence) for sequence in sequences]
 
 
-def user_independent_evaluation_with_representations(classifier, domain_number=1, verbose=True):
+class HMMGestureClassifier:
+    """HMM-based classifier for gesture recognition."""
+    
+    def __init__(self, n_components=5, covariance_type='diag', n_iter=2000):
+        """Initialize the HMM classifier.
+        
+        Args:
+            n_components: Number of hidden states in the HMM
+            covariance_type: Type of covariance matrix ('full', 'diag', 'tied', 'spherical')
+            n_iter: Number of iterations for HMM training
+        """
+        self.n_components = n_components
+        self.covariance_type = covariance_type
+        self.n_iter = n_iter
+        self.models = {}
+        self.classes = []
+    
+    def fit(self, X, y):
+        """Fit an HMM for each class in the training data.
+        
+        Args:
+            X: List of sequences (each a numpy array of shape [time_steps, features])
+            y: List of labels for each sequence
+        """
+        self.classes = np.unique(y)
+        
+        # Extract statistical features from each sequence
+        X_features = extract_features_from_all_gestures(X)
+        
+        # Prepare training data for each class
+        for cls in self.classes:
+            # Get all features for this class
+            class_features = [X_features[i] for i in range(len(X_features)) if y[i] == cls]
+            
+            # Reshape features for HMM (adding a time dimension of length 1)
+            # This is needed because HMM expects sequences, but we now have fixed-length feature vectors
+            X_combined = np.array([feature.reshape(1, -1) for feature in class_features])
+            lengths = [1] * len(class_features)  # Each "sequence" is just one feature vector
+            X_combined = np.vstack(X_combined)  # Stack all the feature vectors
+            
+            # Initialize and train HMM for this class
+            model = hmm.GaussianHMM(
+                n_components=self.n_components,
+                covariance_type=self.covariance_type,
+                n_iter=self.n_iter,
+                random_state=42
+            )
+            
+            # Train the model
+            try:
+                model.fit(X_combined, lengths)
+                self.models[cls] = model
+            except Exception as e:
+                print(f"Error training HMM for class {cls}: {e}")
+                # Create a fallback model in case of issues
+                self.models[cls] = hmm.GaussianHMM(
+                    n_components=2,
+                    covariance_type='spherical',
+                    n_iter=self.n_iter,
+                    random_state=42
+                )
+                self.models[cls].fit(X_combined, lengths)
+    
+    def predict(self, X):
+        """Predict class labels for each sequence in X.
+        
+        Args:
+            X: List of sequences (each a numpy array of shape [time_steps, features])
+            
+        Returns:
+            Array of predicted class labels
+        """
+        if not self.models:
+            raise ValueError("Model not trained yet. Call fit() first.")
+        
+        # Extract statistical features
+        X_features = extract_features_from_all_gestures(X)
+        
+        predictions = []
+        
+        for feature in X_features:
+            # Reshape feature for HMM (adding a time dimension of length 1)
+            feature_sequence = feature.reshape(1, -1)
+            
+            # Compute log likelihood for each class model
+            log_likelihoods = {}
+            for cls, model in self.models.items():
+                try:
+                    log_likelihoods[cls] = model.score(feature_sequence)
+                except Exception as e:
+                    print(f"Error scoring sequence with class {cls} model: {e}")
+                    log_likelihoods[cls] = float('-inf')
+            
+            # Predict the class with highest log likelihood
+            if log_likelihoods:
+                best_class = max(log_likelihoods, key=log_likelihoods.get)
+                predictions.append(best_class)
+            else:
+                # Fallback to most common class if scoring failed for all models
+                predictions.append(self.classes[0])
+        
+        return np.array(predictions)
+
+
+def optimize_hmm_params(X_train, y_train, X_val, y_val):
+    """Find the best HMM parameters using validation data."""
+    best_accuracy = 0
+    best_params = {}
+    
+    # Parameter grid to search
+    param_grid = {
+        'n_components': [3, 5, 7],
+        'covariance_type': ['diag', 'full', 'tied']
+    }
+    
+    # Simple grid search
+    for n_components in param_grid['n_components']:
+        for covariance_type in param_grid['covariance_type']:
+            print(f"Testing HMM with {n_components} states, {covariance_type} covariance...")
+            
+            # Initialize and train model
+            model = HMMGestureClassifier(
+                n_components=n_components,
+                covariance_type=covariance_type
+            )
+            model.fit(X_train, y_train)
+            
+            # Evaluate on validation set
+            y_pred = model.predict(X_val)
+            accuracy = accuracy_score(y_val, y_pred)
+            
+            print(f"Validation accuracy: {accuracy:.4f}")
+            
+            # Update best parameters if improved
+            if accuracy > best_accuracy:
+                best_accuracy = accuracy
+                best_params = {
+                    'n_components': n_components,
+                    'covariance_type': covariance_type
+                }
+    
+    print(f"Best parameters: {best_params}, Best accuracy: {best_accuracy:.4f}")
+    return best_params
+
+
+def user_independent_evaluation(domain_number=1, optimize_params=False, verbose=True):
+    """Evaluate HMM with leave-one-user-out cross-validation."""
+    # Load the dataset
     if verbose:
         print(f"Loading dataset for domain {domain_number}...")
     
-    # Load the dataset
     df = get_dataset_from_domain("../Data/dataset.csv", domain_number)
     
     # Prepare sequences
-    sequences, labels, subject_ids, _ = prepare_gesture_sequences(df, normalize=True)
+    sequences, labels, subject_ids, _ = prepare_gesture_sequences(df)
     
     # Get unique subjects and targets
     unique_subjects = sorted(set(subject_ids))
@@ -133,26 +282,42 @@ def user_independent_evaluation_with_representations(classifier, domain_number=1
     all_true_labels = []
     all_pred_labels = []
     
-    if verbose:
-        print("Extracting features directly from gesture sequences...")
-    
-    # Extract features from all sequences
-    representations = extract_features_from_all_gestures(sequences)
+    # Default HMM parameters
+    hmm_params = {
+        'n_components': 5,
+        'covariance_type': 'diag',
+        'n_iter': 2000
+    }
     
     # Create a mapping from sequences to data
-    sequence_data = list(zip(representations, labels, subject_ids))
+    sequence_data = list(zip(sequences, labels, subject_ids))
     
     # Leave-one-user-out cross-validation
     for test_subject in tqdm(unique_subjects, desc="User cross-validation", disable=not verbose):
-        train_data = [(rep, label) for rep, label, subj in sequence_data if subj != test_subject]
-        test_data = [(rep, label) for rep, label, subj in sequence_data if subj == test_subject]
+        # Split data
+        train_data = [(seq, label) for seq, label, subj in sequence_data if subj != test_subject]
+        test_data = [(seq, label) for seq, label, subj in sequence_data if subj == test_subject]
         
-        X_train = np.array([rep for rep, _ in train_data])
-        y_train = np.array([label for _, label in train_data])
-        X_test = np.array([rep for rep, _ in test_data])
-        y_test = np.array([label for _, label in test_data])
+        X_train = [item[0] for item in train_data]
+        y_train = [item[1] for item in train_data]
+        X_test = [item[0] for item in test_data]
+        y_test = [item[1] for item in test_data]
         
-        # Train classifier
+        # If requested, optimize HMM parameters using a validation set
+        if optimize_params:
+            # Split training data for validation
+            val_size = int(len(X_train) * 0.2)
+            X_val = X_train[-val_size:]
+            y_val = y_train[-val_size:]
+            X_train = X_train[:-val_size]
+            y_train = y_train[:-val_size]
+            
+            # Find best parameters
+            best_params = optimize_hmm_params(X_train, y_train, X_val, y_val)
+            hmm_params.update(best_params)
+        
+        # Train HMM classifier
+        classifier = HMMGestureClassifier(**hmm_params)
         classifier.fit(X_train, y_train)
         
         # Make predictions
@@ -177,24 +342,22 @@ def user_independent_evaluation_with_representations(classifier, domain_number=1
     conf_matrix = confusion_matrix(all_true_labels, all_pred_labels, labels=unique_targets)
     
     if verbose:
-        print(f"\nUser-independent evaluation results:")
+        print(f"\nUser-independent evaluation results (HMM with Statistical Features):")
         print(f"Mean accuracy: {mean_accuracy:.4f} ± {std_accuracy:.4f}")
         
         # Print classification report
         print("\nClassification Report:")
         print(classification_report(all_true_labels, all_pred_labels, labels=unique_targets))
         
-        classifier_type = list(classifier.named_steps.keys())[1]
-        
         # Plot confusion matrix
         plt.figure(figsize=(10, 8))
         sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues',
                    xticklabels=unique_targets, yticklabels=unique_targets)
-        plt.title(f'Confusion Matrix - Domain {domain_number} (Features, {classifier_type})')
+        plt.title(f'Confusion Matrix - Domain {domain_number} (HMM with Statistical Features, User-Independent)')
         plt.ylabel('True Label')
         plt.xlabel('Predicted Label')
         plt.tight_layout()
-        plt.savefig(f'advanced/results/features_{classifier_type}_domain{domain_number}.pdf', format="pdf")
+        plt.savefig(f'advanced/results/hmm_stat_features_user_independent_domain{domain_number}.pdf', format="pdf")
         plt.close()
     
     # Return results
@@ -203,58 +366,71 @@ def user_independent_evaluation_with_representations(classifier, domain_number=1
         'mean_accuracy': mean_accuracy,
         'std_accuracy': std_accuracy,
         'confusion_matrix': conf_matrix,
-        'representations': representations,
-        'labels': labels,
-        'subject_ids': subject_ids
+        'params': hmm_params
     }
-    
-def user_dependent_evaluation_with_representations(classifier, domain_number=1, verbose=True):
+
+
+def user_dependent_evaluation(domain_number=1, optimize_params=False, verbose=True):
+    """Evaluate HMM with trial-based cross-validation (user-dependent)."""
+    # Load the dataset
     if verbose:
         print(f"Loading dataset for domain {domain_number}...")
- 
-    # Load the dataset
+    
     df = get_dataset_from_domain("../Data/dataset.csv", domain_number)
     
     # Prepare sequences
     sequences, labels, subject_ids, trial_ids = prepare_gesture_sequences(df)
     
-    # Get unique subjects, targets and trials
-    unique_subjects = sorted(set(subject_ids))
-    unique_targets = sorted(set(labels))
+    # Get unique trials and targets
     unique_trials = sorted(set(trial_ids))
+    unique_targets = sorted(set(labels))
     
     if verbose:
         print(f"Total gestures: {len(sequences)}")
-        print(f"Total users: {len(unique_subjects)}")
-        print(f"Total classes: {len(unique_targets)}")
         print(f"Total trials: {len(unique_trials)}")
+        print(f"Total classes: {len(unique_targets)}")
     
     # Initialize results
     trial_accuracies = []
     all_true_labels = []
     all_pred_labels = []
     
-    if verbose:
-        print("Extracting features from gesture sequences...")
-    
-    # Extract features from all sequences
-    representations = extract_features_from_all_gestures(sequences)
+    # Default HMM parameters
+    hmm_params = {
+        'n_components': 5,
+        'covariance_type': 'diag',
+        'n_iter': 2000
+    }
     
     # Create a mapping from sequences to data
-    sequence_data = list(zip(representations, labels, subject_ids, trial_ids))
+    sequence_data = list(zip(sequences, labels, subject_ids, trial_ids))
     
     # Leave-one-trial-out cross-validation
     for test_trial in tqdm(unique_trials, desc="Trial cross-validation", disable=not verbose):
-        # Split data by trial
-        train_data = [(rep, label, subj) for rep, label, subj, trial in sequence_data if trial != test_trial]
-        test_data = [(rep, label, subj) for rep, label, subj, trial in sequence_data if trial == test_trial]
+        # Split data
+        train_data = [(seq, label) for seq, label, _, trial in sequence_data if trial != test_trial]
+        test_data = [(seq, label) for seq, label, _, trial in sequence_data if trial == test_trial]
         
-        X_train = np.array([rep for rep, _, _ in train_data])
-        y_train = np.array([label for _, label, _ in train_data])
-        X_test = np.array([rep for rep, _, _ in test_data])
-        y_test = np.array([label for _, label, _ in test_data])
+        X_train = [item[0] for item in train_data]
+        y_train = [item[1] for item in train_data]
+        X_test = [item[0] for item in test_data]
+        y_test = [item[1] for item in test_data]
         
-        # Train classifier
+        # If requested, optimize HMM parameters using a validation set
+        if optimize_params and len(X_train) > 10:  # Only optimize if we have enough data
+            # Split training data for validation
+            val_size = max(1, int(len(X_train) * 0.2))
+            X_val = X_train[-val_size:]
+            y_val = y_train[-val_size:]
+            X_train = X_train[:-val_size]
+            y_train = y_train[:-val_size]
+            
+            # Find best parameters
+            best_params = optimize_hmm_params(X_train, y_train, X_val, y_val)
+            hmm_params.update(best_params)
+        
+        # Train HMM classifier
+        classifier = HMMGestureClassifier(**hmm_params)
         classifier.fit(X_train, y_train)
         
         # Make predictions
@@ -279,24 +455,22 @@ def user_dependent_evaluation_with_representations(classifier, domain_number=1, 
     conf_matrix = confusion_matrix(all_true_labels, all_pred_labels, labels=unique_targets)
     
     if verbose:
-        print(f"\nUser-dependent evaluation results:")
+        print(f"\nUser-dependent evaluation results (HMM with Statistical Features):")
         print(f"Mean accuracy: {mean_accuracy:.4f} ± {std_accuracy:.4f}")
         
         # Print classification report
         print("\nClassification Report:")
         print(classification_report(all_true_labels, all_pred_labels, labels=unique_targets))
         
-        classifier_type = list(classifier.named_steps.keys())[1]
-        
         # Plot confusion matrix
         plt.figure(figsize=(10, 8))
         sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues',
                    xticklabels=unique_targets, yticklabels=unique_targets)
-        plt.title(f'Confusion Matrix - Domain {domain_number} (Features, {classifier_type}, User-Dependent)')
+        plt.title(f'Confusion Matrix - Domain {domain_number} (HMM with Statistical Features, User-Dependent)')
         plt.ylabel('True Label')
         plt.xlabel('Predicted Label')
         plt.tight_layout()
-        plt.savefig(f'advanced/results/features_user_dependent_{classifier_type}_domain{domain_number}.pdf', format="pdf")
+        plt.savefig(f'advanced/results/hmm_stat_features_user_dependent_domain{domain_number}.pdf', format="pdf")
         plt.close()
     
     # Return results
@@ -305,25 +479,16 @@ def user_dependent_evaluation_with_representations(classifier, domain_number=1, 
         'mean_accuracy': mean_accuracy,
         'std_accuracy': std_accuracy,
         'confusion_matrix': conf_matrix,
-        'representations': representations,
-        'labels': labels,
-        'subject_ids': subject_ids
+        'params': hmm_params
     }
 
-if __name__ == '__main__':
-    classifier = Pipeline([
-        ('scaler', StandardScaler()),
-        # Found with BayesSearchCV
-        ('logistic', LogisticRegression(solver="liblinear", max_iter=2000, C=2.5, penalty="l1"))
-    ])
-    
-    # Run both evaluations
-    print("Running user-independent evaluation...")
-    user_independent_results = user_independent_evaluation_with_representations(classifier)
-    
-    print("\nRunning user-dependent evaluation...")
-    user_dependent_results = user_dependent_evaluation_with_representations(classifier)
-    
+if __name__ == "__main__":
+    print("Running user-independent evaluation with HMM and Statistical Features...")
+    ui_results = user_independent_evaluation(domain_number=1, optimize_params=False)
+
+    print("\nRunning user-dependent evaluation with HMM and Statistical Features...")
+    ud_results = user_dependent_evaluation(domain_number=1, optimize_params=False)
+
     print("\nComparison of results:")
-    print(f"User-independent accuracy: {user_independent_results['mean_accuracy']:.4f} ± {user_independent_results['std_accuracy']:.4f}")
-    print(f"User-dependent accuracy: {user_dependent_results['mean_accuracy']:.4f} ± {user_dependent_results['std_accuracy']:.4f}")
+    print(f"User-independent accuracy: {ui_results['mean_accuracy']:.4f} ± {ui_results['std_accuracy']:.4f}")
+    print(f"User-dependent accuracy: {ud_results['mean_accuracy']:.4f} ± {ud_results['std_accuracy']:.4f}")

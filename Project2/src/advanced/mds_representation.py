@@ -98,6 +98,11 @@ def user_independent_evaluation_with_representations(classifier,
     if verbose:
         print(f"Computing pairwise distances using {distance_function.__name__}...")
     
+    subset_indices = np.random.choice(len(sequences), size=int(len(sequences) / 10), replace=False)
+    sequences = [sequences[i] for i in subset_indices]
+    labels = [labels[i] for i in subset_indices]
+    subject_ids = [subject_ids[i] for i in subset_indices]
+
     # Compute full distance matrix
     distance_matrix = compute_distance_matrix(sequences, distance_function)
     
@@ -195,7 +200,7 @@ def user_independent_evaluation_with_representations(classifier,
 if __name__ == "__main__":
     classifier = Pipeline([
         ('scaler', StandardScaler()),
-        ('logistic', LogisticRegression(max_iter=1000, multi_class='multinomial'))
+        ('logistic', LogisticRegression(max_iter=1000, C=1, multi_class='multinomial'))
         # ('svm', SVC(C=10, gamma='scale', probability=True))
         # ('nn', MLPClassifier(hidden_layer_sizes=(100, 50), max_iter=1000, early_stopping=True))
     ])
