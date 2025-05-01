@@ -1,7 +1,10 @@
 import pandas as pd
+import numpy as np
 import glob
 import os
 import time
+
+from scipy.stats import skew, kurtosis
 
 def get_dataset_from_domain(dataset_path, domain_number):
     """
@@ -131,6 +134,70 @@ def combine_gesture_csv_files(output_filename="Data/dataset.csv"):
     print(f"Combined dataset shape: {combined_df.shape}")
     
     return combined_df
+
+def extract_features_from_gesture(sequence):
+    # Basic Statistic Values
+    mean = np.mean(sequence, axis=0)
+    std = np.std(sequence, axis=0)
+    min_vals = np.min(sequence, axis=0)
+    max_vals = np.max(sequence, axis=0)
+    range_of_motion = max_vals - min_vals
+    # skewness value greater than zero means that there is more weight in the right tail of the distribution
+    skewness = skew(sequence, axis=0, bias=False)
+    # kurtosis = fourth central moment divided by the square of the variance
+    kurt = kurtosis(sequence, axis=0, bias=False)
+
+    if len(sequence) > 1:
+        # Velocity and their statistics
+        velocity = np.diff(sequence, axis=0)
+        mean_velocity = np.mean(velocity, axis=0)
+        std_velocity = np.std(velocity, axis=0)
+        max_velocity = np.max(np.abs(velocity), axis=0)
+        energy_velocity = np.sum(velocity**2, axis=0) # Energy of the velocity
+        sma_velocity = np.sum(np.abs(velocity)) / len(velocity) # Smoothness of the velocity
+
+        # Path length (total distance traveled)
+        path_length = np.sum(np.sqrt(np.sum(velocity**2, axis=1)))
+
+        # Orientation change
+        initial_vector = sequence[1] - sequence[0]
+        final_vector = sequence[-1] - sequence[-2]
+        cos_theta = np.dot(initial_vector, final_vector) / (np.linalg.norm(initial_vector) * np.linalg.norm(final_vector) + 1e-8)
+        orientation_change = np.arccos(np.clip(cos_theta, -1.0, 1.0))
+    else:
+        mean_velocity = np.zeros(3)
+        std_velocity = np.zeros(3)
+        max_velocity = np.zeros(3)
+        energy_velocity = np.zeros(3)
+        sma_velocity = 0
+        path_length = 0
+        orientation_change = 0
+
+    if len(sequence) > 2:
+        # Acceleration and their statistics
+        acceleration = np.diff(velocity, axis=0)
+        mean_acceleration = np.mean(acceleration, axis=0)
+        std_acceleration = np.std(acceleration, axis=0)
+        max_acceleration = np.max(np.abs(acceleration), axis=0)
+        energy_acceleration = np.sum(acceleration**2, axis=0)
+        sma_acceleration = np.sum(np.abs(acceleration)) / len(acceleration)
+    else:
+        mean_acceleration = np.zeros(3)
+        std_acceleration = np.zeros(3)
+        max_acceleration = np.zeros(3)
+        energy_acceleration = np.zeros(3)
+        sma_acceleration = 0
+
+    # Concatenate all features into a single array
+    features = np.concatenate([
+        mean, std, min_vals, max_vals, range_of_motion,
+        skewness, kurt,
+        mean_velocity, std_velocity, max_velocity, energy_velocity, [sma_velocity],
+        mean_acceleration, std_acceleration, max_acceleration, energy_acceleration, [sma_acceleration],
+        [path_length, orientation_change]
+    ])
+
+    return features
 
 # Execute the function to create a single dataset
 if __name__ == "__main__":
