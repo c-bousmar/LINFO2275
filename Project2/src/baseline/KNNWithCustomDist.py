@@ -44,10 +44,10 @@ class KNNWithCustomDist:
     
 if __name__ == '__main__':
     
-    use_string_repr = False
     k = 1
-    domain_id = 1
+    domain_id = 4
     distance_function = dtw_distance
+    use_string_repr = False
     
     # Get dataset
     if use_string_repr:
