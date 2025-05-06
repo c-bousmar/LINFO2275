@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm import tqdm
+from sklearn.base import clone
 from sklearn.metrics import confusion_matrix, accuracy_score, classification_report
 
 class GestureRecognitionEvaluator:
@@ -141,19 +142,11 @@ class GestureRecognitionEvaluator:
             train_mask = subject_ids != test_subject
             test_mask = subject_ids == test_subject
             
-            # Clone the model to ensure independence between iterations
-            try:
-                from sklearn.base import clone
-                current_model = clone(model)
-            except:
-                # If not sklearn model, just use the original
-                current_model = model
-            
             # Train model
-            current_model.fit(sequences[train_mask], labels[train_mask])
+            model.fit(sequences[train_mask], labels[train_mask])
             
             # Make predictions
-            y_pred = current_model.predict(sequences[test_mask])
+            y_pred = model.predict(sequences[test_mask])
             
             # Calculate accuracy
             acc = accuracy_score(labels[test_mask], y_pred)
@@ -236,7 +229,8 @@ class GestureRecognitionEvaluator:
         
         if len(np.unique(trial_ids)) >= n_folds:
             # Use trials for splits if there are enough
-            for fold, test_trial in enumerate(np.unique(trial_ids)[:n_folds]):
+            for fold, test_trial in enumerate(tqdm(np.unique(trial_ids)[:n_folds], desc="Processing trials", disable=not self.verbose)):
+            # for fold, test_trial in enumerate(np.unique(trial_ids)[:n_folds]):
                 if self.verbose:
                     print(f"Fold {fold+1}/{n_folds} - Testing on trial {test_trial}")
                 
@@ -245,16 +239,9 @@ class GestureRecognitionEvaluator:
                 test_mask[test_indices] = True
                 train_mask = ~test_mask
                 
-                # Clone the model
-                try:
-                    from sklearn.base import clone
-                    current_model = clone(model)
-                except:
-                    current_model = model
-                
                 # Train and predict
-                current_model.fit(sequences[train_mask], labels[train_mask])
-                y_pred = current_model.predict(sequences[test_mask])
+                model.fit(sequences[train_mask], labels[train_mask])
+                y_pred = model.predict(sequences[test_mask])
                 
                 # Calculate accuracy
                 acc = accuracy_score(labels[test_mask], y_pred)
@@ -329,6 +316,51 @@ class GestureRecognitionEvaluator:
             'unique_labels': unique_labels
         }
     
+    def save_results_to_csv(self, results, output_file):
+        """
+        Save evaluation results to a CSV file.
+        
+        @param results: Results dictionary from evaluator
+        @param output_file: Path to save the CSV file
+        """
+        # Create dictionary for dataframe
+        data = {
+            'fold': [],
+            'accuracy': [],
+            'type': []
+        }
+        
+        # Add individual fold accuracies
+        for i, acc in enumerate(results['accuracies']):
+            data['fold'].append(i+1)
+            data['accuracy'].append(acc)
+            data['type'].append('fold')
+        
+        # Add mean accuracy
+        data['fold'].append('mean')
+        data['accuracy'].append(results['mean_accuracy'])
+        data['type'].append('summary')
+        
+        # Add std accuracy
+        data['fold'].append('std')
+        data['accuracy'].append(results['std_accuracy'])
+        data['type'].append('summary')
+        
+        # Create dataframe and save to CSV
+        df = pd.DataFrame(data)
+        df.to_csv(output_file, index=False)
+        
+        # Also save confusion matrix to a separate file
+        cm_file = output_file.replace('.csv', '_confusion_matrix.csv')
+        pd.DataFrame(
+            results['confusion_matrix'], 
+            index=results['unique_labels'],
+            columns=results['unique_labels']
+        ).to_csv(cm_file)
+        
+        print(f"Results saved to {output_file}")
+        print(f"Confusion matrix saved to {cm_file}")
+            
     def plot_confusion_matrix(self, results, title=None, filename=None):
         """
         Plot a confusion matrix from the evaluation results.
@@ -364,9 +396,9 @@ class GestureRecognitionEvaluator:
         
         plt.show()
     
-    def compare_models(self, models_dict, df, evaluation_types=None, n_folds=10):
+    def compare_models(self, models_dict, df, evaluation_types=None, n_folds=10, output_csv="advanced_comparison.csv"):
         """
-        Compare multiple models with both evaluation methods.
+        Compare multiple models with both evaluation methods and save results to CSV.
         
         Parameters:
         -----------
@@ -378,6 +410,8 @@ class GestureRecognitionEvaluator:
             List of evaluation types to use. Default: ['user-independent', 'user-dependent']
         n_folds : int
             Number of folds for user-dependent evaluation.
+        output_csv : str, optional
+            Path to save results CSV file. If None, results are not saved.
             
         Returns:
         --------
@@ -389,6 +423,9 @@ class GestureRecognitionEvaluator:
         
         results = {}
         
+        # Create a list to store rows for CSV
+        csv_rows = []
+        
         for model_name, model in models_dict.items():
             results[model_name] = {}
             for eval_type in evaluation_types:
@@ -397,9 +434,36 @@ class GestureRecognitionEvaluator:
                     print(f"Evaluating {model_name} with {eval_type} protocol")
                     print(f"{'-'*50}")
                 
-                results[model_name][eval_type] = self.evaluate(
+                eval_results = self.evaluate(
                     model, df, evaluation_type=eval_type, n_folds=n_folds
                 )
+                
+                results[model_name][eval_type] = eval_results
+                
+                # Add data to CSV rows
+                for fold_idx, fold_acc in enumerate(eval_results.get('fold_accuracies', [])):
+                    csv_rows.append({
+                        'model': model_name,
+                        'evaluation_type': eval_type,
+                        'fold': fold_idx,
+                        'accuracy': fold_acc
+                    })
+                
+                # Add mean results
+                csv_rows.append({
+                    'model': model_name,
+                    'evaluation_type': eval_type,
+                    'fold': 'mean',
+                    'accuracy': eval_results['mean_accuracy']
+                })
+                
+                # Add std results
+                csv_rows.append({
+                    'model': model_name,
+                    'evaluation_type': eval_type,
+                    'fold': 'std',
+                    'accuracy': eval_results['std_accuracy']
+                })
         
         # Print summary
         if self.verbose:
@@ -413,8 +477,31 @@ class GestureRecognitionEvaluator:
                     std_acc = results[model_name][eval_type]['std_accuracy']
                     print(f"  {eval_type}: {mean_acc:.4f} ± {std_acc:.4f}")
         
+        # Save results to CSV if output_csv is provided
+        if output_csv is not None:
+            import pandas as pd
+            results_df = pd.DataFrame(csv_rows)
+            results_df.to_csv(output_csv, index=False)
+            
+            if self.verbose:
+                print(f"\nResults saved to {output_csv}")
+        elif self.verbose:
+            # If output_csv is None but we want to save results anyway (as requested)
+            import pandas as pd
+            import os
+            from datetime import datetime
+            
+            # Generate default filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            default_csv = f"model_comparison_results_{timestamp}.csv"
+            
+            results_df = pd.DataFrame(csv_rows)
+            results_df.to_csv(default_csv, index=False)
+            
+            print(f"\nResults saved to {default_csv}")
+        
         return results
-    
+
     def get_dataset_from_domain(self, file_path, domain_number):
         """
         Utility function to get a dataset for a specific domain.

@@ -3,14 +3,22 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tqdm import tqdm
-
 from distance_metrics import euclidean_distance
-
 from collections import Counter
 
 class KNN_Classifier:
+    """
+    K-Nearest Neighbors classifier for gesture recognition.
+    Supports both user-independent and user-dependent classification modes.
+    """
     
     def __init__(self, k=1, distance_function=None):
+        """
+        Initialize the KNN classifier.
+        
+        @param k: Number of nearest neighbors to consider
+        @param distance_function: Function to compute distances between sequences
+        """
         self.X_train = None
         self.y_train = None
         self.subject_info = None
@@ -21,6 +29,14 @@ class KNN_Classifier:
             raise ValueError("k must be a positive integer.")
     
     def fit(self, X_train, y_train, subject_info=None):
+        """
+        Train the KNN classifier on the provided data.
+        
+        @param X_train: List of training gesture sequences
+        @param y_train: List of training labels
+        @param subject_info: Optional list of subject IDs for user-dependent classification
+        """
+        # Validate input data
         if len(X_train) != len(y_train):
             raise ValueError("Number of training samples and labels must match.")
         
@@ -30,15 +46,24 @@ class KNN_Classifier:
         if subject_info is not None and len(subject_info) != len(X_train):
             raise ValueError("Number of subject IDs must match number of training samples.")
 
-        # Store the training points
+        # Store the training data
         self.X_train = X_train
         self.y_train = y_train
         self.subject_info = subject_info
         
+        # Adjust k if necessary to not exceed training set size
         if self.k > len(self.X_train):
             self.k = len(self.X_train)
     
     def predict(self, X_test, verbose=True):
+        """
+        Predict labels for test data using user-independent approach.
+        
+        @param X_test: List of test gesture sequences
+        @param verbose: Whether to display progress bars
+        @return: List of predicted labels
+        """
+        # Validate model state and input
         if self.X_train is None or self.y_train is None:
             raise ValueError("You must fit the model before predicting.")
 
@@ -47,12 +72,12 @@ class KNN_Classifier:
 
         predictions = []
         
-        # Iterate over each test sample (to predict)
+        # Iterate over each test sample
         outer_iter = tqdm(X_test, desc="Predicting", unit="sample", position=0) if verbose else X_test
         for test_sample in outer_iter:
             distances = []
             
-            # Iterate over each train sample (to compute distance with the test sample)
+            # Compute distances to all training samples
             inner_iter = zip(self.X_train, self.y_train)
             if verbose:
                 inner_iter = tqdm(inner_iter, total=len(self.X_train), desc="Comparing", position=1, leave=False)
@@ -60,53 +85,11 @@ class KNN_Classifier:
                 dist = self.distance_function(test_sample, train_sample)
                 distances.append((dist, label))
             
-            # Get the k smallest distances
+            # Get the k nearest neighbors
             distances.sort(key=lambda x: x[0])
             k_neighbors = [label for (_, label) in distances[:self.k]]
             
-            # Make a Majority vote for the prediction
-            most_common = Counter(k_neighbors).most_common(1)[0][0]
-            predictions.append(most_common)
-        
-        return predictions
-    
-    def predict_user_dependent(self, X_test, subject_test, verbose=False):
-        if self.X_train is None or self.y_train is None or self.subject_info is None:
-            raise ValueError("You must fit the model with subject_info before using predict_user_dependent.")
-
-        if len(X_test) == 0:
-            raise ValueError("X_test cannot be empty.")
-            
-        if len(X_test) != len(subject_test):
-            raise ValueError("Number of test samples and subject IDs must match.")
-
-        predictions = []
-        
-        outer_iter = enumerate(zip(X_test, subject_test))
-        if verbose:
-            outer_iter = tqdm(outer_iter, total=len(X_test), desc="Predicting", position=0)
-        for _, (test_sample, test_subject) in outer_iter:
-            distances = []
-            
-            # Only consider training samples from the same user
-            user_train_indices = [j for j, subj in enumerate(self.subject_info) if subj == test_subject]
-            
-            if len(user_train_indices) == 0:
-                raise ValueError("There is no training samples for this user.")
-            
-            # Iterate over training samples from the same user
-            for j in user_train_indices:
-                train_sample = self.X_train[j]
-                label = self.y_train[j]
-                dist = self.distance_function(test_sample, train_sample)
-                distances.append((dist, label))
-            
-            # Get the k smallest distances
-            k_local = min(self.k, len(distances))
-            distances.sort(key=lambda x: x[0])
-            k_neighbors = [label for (_, label) in distances[:k_local]]
-            
-            # Make a Majority vote for the prediction
+            # Determine prediction by majority vote
             most_common = Counter(k_neighbors).most_common(1)[0][0]
             predictions.append(most_common)
         

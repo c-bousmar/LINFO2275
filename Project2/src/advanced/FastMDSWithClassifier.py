@@ -22,57 +22,43 @@ from GestureRecognizerEstimator import GestureRecognitionEvaluator
 class FastMDSWithClassifier:
     """
     An optimized model that uses Multi-Dimensional Scaling (MDS) with various
-    performance improvements to speed up the computation.
+    performance improvements for fast gesture recognition.
     """
     
     def __init__(self, 
-                 classifier_type='logistic', 
+                 classifier_type='logistic',
                  distance_function=dtw_distance,
                  n_components=5,
-                 use_features=True,
                  use_caching=True,
-                 sample_ratio=0.05,  # Reduced to 5% for much faster computation
+                 sample_ratio=0.05,
                  fast_dtw=True,
                  n_jobs=-1,
                  verbose=True):
         """
-        Initialize the model.
+        Initialize the FastMDS with Classifier model.
         
-        Parameters:
-        -----------
-        classifier_type : str
-            Type of classifier to use ('logistic', 'svm', or 'nn')
-        distance_function : function
-            Function to compute distances between sequences
-        n_components : int
-            Number of dimensions for MDS representation
-        use_features : bool
-            Whether to augment MDS with statistical features
-        use_caching : bool
-            Whether to cache distance computations
-        sample_ratio : float
-            Ratio of sequences to sample (between 0 and 1)
-        fast_dtw : bool
-            Whether to use a faster DTW implementation
-        n_jobs : int
-            Number of parallel jobs (-1 for all CPUs)
-        verbose : bool
-            Whether to display progress
+        @param classifier_type: Type of classifier to use ('logistic', 'svm', or 'nn')
+        @param distance_function: Function to compute distances between sequences
+        @param n_components: Number of dimensions for MDS representation
+        @param use_caching: Whether to cache distance computations
+        @param sample_ratio: Ratio of sequences to sample (between 0 and 1)
+        @param fast_dtw: Whether to use a faster DTW implementation
+        @param n_jobs: Number of parallel jobs (-1 for all CPUs)
+        @param verbose: Whether to display progress
         """
         self.distance_function = distance_function
         self.n_components = n_components
-        self.use_features = use_features
         self.use_caching = use_caching
         self.sample_ratio = sample_ratio
         self.fast_dtw = fast_dtw
         self.n_jobs = n_jobs
         self.verbose = verbose
         
-        # Create classifier pipeline
+        # Create classifier pipeline based on the specified type
         if classifier_type == 'logistic':
             self.classifier = Pipeline([
                 ('scaler', StandardScaler()),
-                ('classifier', LogisticRegression(max_iter=1000, C=1, multi_class='multinomial'))
+                ('classifier', LogisticRegression(max_iter=1000, C=1.0, penalty='l2', solver='liblinear'))
             ])
         elif classifier_type == 'svm':
             self.classifier = Pipeline([
@@ -87,60 +73,52 @@ class FastMDSWithClassifier:
         else:
             raise ValueError("classifier_type must be 'logistic', 'svm', or 'nn'")
         
-        # Initialize attributes
+        # Initialize model attributes
         self.mds_model = None
         self.train_sequences = None
         self.sampled_train_sequences = None
         self.sample_indices = None
         self.feature_scaler = None
-        self.mds_features = None  # Store MDS features explicitly
+        self.mds_features = None
         self.cache_file = "mds_distance_cache.joblib"
         
-        # For fast DTW if enabled
+        # Import fast DTW if enabled
         if self.fast_dtw:
-            try:
-                from fastdtw import fastdtw # type: ignore
-                self.fastdtw = fastdtw
-            except ImportError:
-                if self.verbose:
-                    print("fastdtw package not found. Install with: pip install fastdtw")
-                self.fast_dtw = False
+            from fastdtw import fastdtw
+            self.fastdtw = fastdtw
     
     def _sample_sequences(self, sequences, labels):
         """
         Sample a subset of sequences to reduce computation time.
         
-        Parameters:
-        -----------
-        sequences : list
-            List of sequences
-        labels : list
-            List of labels
-            
-        Returns:
-        --------
-        tuple
-            (sampled_sequences, sampled_labels, indices)
+        @param sequences: List of sequences
+        @param labels: List of labels
+        @return: Tuple (sampled_sequences, sampled_labels, indices)
         """
+        # If sample ratio is 1 or greater, use all sequences
         if self.sample_ratio >= 1.0:
             return sequences, labels, np.arange(len(sequences))
         
         n = len(sequences)
 
-        # Stratified sampling by label
+        # Perform stratified sampling by label to maintain class distribution
         unique_labels = np.unique(labels)
         indices = []
         
         for label in unique_labels:
+            # Get indices of samples with this label
             label_indices = np.where(np.array(labels) == label)[0]
+            # Calculate how many to sample from this class
             label_sample_size = max(int(len(label_indices) * self.sample_ratio), 1)
+            # Sample without replacement
             sampled_indices = np.random.choice(label_indices, size=label_sample_size, replace=False)
             indices.extend(sampled_indices)
         
-        # Convert to numpy array and sort
+        # Convert to numpy array and sort for consistent access
         indices = np.array(indices)
         indices.sort()
         
+        # Create the sampled dataset
         sampled_sequences = [sequences[i] for i in indices]
         sampled_labels = [labels[i] for i in indices]
         
@@ -153,37 +131,31 @@ class FastMDSWithClassifier:
         """
         Compute DTW distance matrix using parallel processing.
         
-        Parameters:
-        -----------
-        sequences : list
-            List of sequences
-            
-        Returns:
-        --------
-        numpy.ndarray
-            Distance matrix
+        @param sequences: List of sequences
+        @return: Distance matrix as numpy array
         """
         n = len(sequences)
         distances = np.zeros((n, n))
         
-        # Check for cache
+        self.cache_file = f"mds_distance_cache_{n}.joblib"
+        
         if self.use_caching and os.path.exists(self.cache_file):
             if self.verbose:
                 print(f"Loading cached distances from {self.cache_file}...")
             try:
-                distances = load(self.cache_file)
-                if distances.shape == (n, n):
-                    return distances
+                cached_distances = load(self.cache_file)
+                if cached_distances.shape == (n, n):
+                    return cached_distances
                 else:
                     if self.verbose:
-                        print(f"Cache shape {distances.shape} doesn't match required shape {(n, n)}. Recomputing...")
-            except:
+                        print(f"Cache shape {cached_distances.shape} doesn't match required shape {(n, n)}. Recomputing...")
+            except Exception as e:
                 if self.verbose:
-                    print("Error loading cache. Recomputing distances...")
+                    print(f"Error loading cache: {e}. Recomputing distances...")
         
         # Function to compute a single distance
         def compute_distance(i, j):
-            if i <= j:  # Only compute upper triangle
+            if i <= j:  # Only compute upper triangle (matrix is symmetric)
                 if self.fast_dtw:
                     dist, _ = self.fastdtw(sequences[i], sequences[j])
                     return i, j, dist
@@ -191,7 +163,7 @@ class FastMDSWithClassifier:
                     return i, j, self.distance_function(sequences[i], sequences[j])
             return i, j, 0  # Will be filled in by symmetry
         
-        # Generate all pairs
+        # Generate all pairs to compute
         pairs = [(i, j) for i in range(n) for j in range(i, n)]
         
         # Compute distances in parallel
@@ -200,7 +172,7 @@ class FastMDSWithClassifier:
             delayed(compute_distance)(i, j) for i, j in pairs
         )
         
-        # Fill the distance matrix
+        # Fill the distance matrix with results
         for i, j, dist in results:
             distances[i, j] = dist
             if i != j:  # Fill the lower triangle by symmetry
@@ -209,7 +181,7 @@ class FastMDSWithClassifier:
         if self.verbose:
             print(f"Distance computation took {time.time() - start_time:.2f} seconds")
         
-        # Cache the results
+        # Cache the computed distances
         if self.use_caching:
             if self.verbose:
                 print(f"Caching distances to {self.cache_file}...")
@@ -221,15 +193,8 @@ class FastMDSWithClassifier:
         """
         Extract statistical features from sequences.
         
-        Parameters:
-        -----------
-        sequences : list
-            List of sequences
-            
-        Returns:
-        --------
-        numpy.ndarray
-            Feature matrix
+        @param sequences: List of sequences
+        @return: Feature matrix as numpy array
         """
         if self.verbose:
             print("Extracting statistical features...")
@@ -241,12 +206,8 @@ class FastMDSWithClassifier:
         """
         Fit the model to training data.
         
-        Parameters:
-        -----------
-        X_train : list
-            List of gesture sequences
-        y_train : list
-            List of labels
+        @param X_train: List of training gesture sequences
+        @param y_train: List of training labels
         """
         if self.verbose:
             print(f"Fitting FastMDS model on {len(X_train)} sequences...")
@@ -254,7 +215,7 @@ class FastMDSWithClassifier:
         # Store the original training sequences
         self.train_sequences = X_train
         
-        # Sample sequences for MDS computation
+        # Sample sequences to reduce computation for MDS
         self.sampled_train_sequences, sampled_y_train, self.sample_indices = self._sample_sequences(X_train, y_train)
         
         # Compute distance matrix for sampled sequences
@@ -262,7 +223,7 @@ class FastMDSWithClassifier:
             print(f"Computing distance matrix for {len(self.sampled_train_sequences)} sampled sequences...")
         distance_matrix = self._compute_dtw_distance_matrix_parallel(self.sampled_train_sequences)
         
-        # Apply MDS to sampled sequences
+        # Apply MDS to learn lower-dimensional representation
         if self.verbose:
             print(f"Applying MDS to learn {self.n_components}-dimensional representation...")
         self.mds_model = MDS(
@@ -273,47 +234,10 @@ class FastMDSWithClassifier:
             verbose=2 if self.verbose else 0
         )
         self.mds_features = self.mds_model.fit_transform(distance_matrix)
+        training_features = self.mds_features
+        y_train = sampled_y_train
         
-        # Extract statistical features for all training sequences
-        if self.use_features:
-            # Extract statistical features
-            statistical_features = self._extract_features(X_train)
-            
-            # Scale features
-            self.feature_scaler = StandardScaler()
-            statistical_features = self.feature_scaler.fit_transform(statistical_features)
-            
-            # For each sequence, either use its MDS features if it was in the sample,
-            # or approximate them using the nearest sampled sequence
-            full_mds_features = np.zeros((len(X_train), self.n_components))
-            
-            # For sampled sequences, use their direct MDS features
-            for i, orig_idx in enumerate(self.sample_indices):
-                full_mds_features[orig_idx] = self.mds_features[i]
-            
-            # For non-sampled sequences, approximate using the nearest sampled one
-            non_sampled_indices = np.setdiff1d(np.arange(len(X_train)), self.sample_indices)
-            
-            if len(non_sampled_indices) > 0:
-                if self.verbose:
-                    print(f"Approximating MDS features for {len(non_sampled_indices)} non-sampled sequences...")
-                
-                for idx in non_sampled_indices:
-                    # Find the nearest sampled sequence using statistical features
-                    dists = np.sum((statistical_features[self.sample_indices] - statistical_features[idx])**2, axis=1)
-                    nearest_idx = np.argmin(dists)
-                    # Use its MDS features
-                    full_mds_features[idx] = self.mds_features[nearest_idx]
-            
-            # Combine MDS and statistical features
-            combined_features = np.hstack([full_mds_features, statistical_features])
-            training_features = combined_features
-        else:
-            # Only MDS features (only for sampled sequences)
-            training_features = self.mds_features
-            y_train = sampled_y_train
-        
-        # Train classifier
+        # Train classifier on the prepared features
         if self.verbose:
             print("Training classifier...")
         self.classifier.fit(training_features, y_train)
@@ -322,20 +246,13 @@ class FastMDSWithClassifier:
         """
         Predict labels for test data.
         
-        Parameters:
-        -----------
-        X_test : list
-            List of test sequences
-            
-        Returns:
-        --------
-        numpy.ndarray
-            Predicted labels
+        @param X_test: List of test gesture sequences
+        @return: Predicted labels as numpy array
         """
         if self.mds_model is None:
             raise ValueError("Model not fitted. Call fit() first.")
         
-        # Compute distances between test sequences and sampled training sequences
+        # Compute distances between test and sampled training sequences
         if self.verbose:
             print(f"Computing distances between {len(X_test)} test and {len(self.sampled_train_sequences)} sampled training sequences...")
         
@@ -375,23 +292,14 @@ class FastMDSWithClassifier:
         # Use weighted average based on inverse distances for projection
         for i in range(n_test):
             for j in range(self.n_components):
-                # Use inverse distance as weights - make sure dimensions match
+                # Use inverse distance as weights
                 weights = 1.0 / (test_distance_matrix[i] + 1e-10)  # Avoid division by zero
-                weights /= np.sum(weights)  # Normalize
+                weights /= np.sum(weights)  # Normalize weights
                 mds_test_features[i, j] = np.sum(weights * self.mds_features[:, j])
         
-        # Prepare features for prediction
-        if self.use_features:
-            # Extract and scale statistical features
-            test_statistical_features = self._extract_features(X_test)
-            test_statistical_features = self.feature_scaler.transform(test_statistical_features)
-            
-            # Combine MDS and statistical features
-            test_features = np.hstack([mds_test_features, test_statistical_features])
-        else:
-            test_features = mds_test_features
+        test_features = mds_test_features
         
-        # Make predictions
+        # Make predictions using the trained classifier
         if self.verbose:
             print("Predicting labels...")
         y_pred = self.classifier.predict(test_features)
@@ -399,25 +307,25 @@ class FastMDSWithClassifier:
         return y_pred
 
 
-if __name__ == "__main__":
-    # Get dataset
-    df = get_dataset_from_domain("../Data/dataset.csv", domain_number=1)
-    
-    # Create evaluator
+if __name__ == '__main__':
+    # Load dataset
+    domain_id = 1
+    df = get_dataset_from_domain("../Data/dataset.csv", domain_number=domain_id)
+
+    # Initialize evaluator with verbose output
     evaluator = GestureRecognitionEvaluator(verbose=True)
     
-    # Evaluate MDS model
+    # Evaluate using user-independent cross-validation
     results_indep = evaluator.evaluate(
         model=FastMDSWithClassifier(
             classifier_type='logistic',
             distance_function=dtw_distance,
-            n_components=5,
-            use_features=True,
+            n_components=20,
             use_caching=True,         # Cache distances to avoid recomputation
-            sample_ratio=0.05,        # Use 5% of the data for extreme speed
+            sample_ratio=0.4,         # Use 40% of the data for extreme speed
             fast_dtw=True,            # Use faster DTW implementation
             n_jobs=-1,
-            verbose=True
+            verbose=False
         ),
         df=df,
         evaluation_type="user-independent",
@@ -425,27 +333,31 @@ if __name__ == "__main__":
         n_folds=10
     )
     
+    # Evaluate using user-dependent cross-validation
     results_dep = evaluator.evaluate(
         model=FastMDSWithClassifier(
             classifier_type='logistic',
             distance_function=dtw_distance,
-            n_components=5,
-            use_features=True,
+            n_components=20,
             use_caching=True,         # Cache distances to avoid recomputation
-            sample_ratio=0.05,        # Use 5% of the data for extreme speed
+            sample_ratio=0.4,         # Use 40% of the data for extreme speed
             fast_dtw=True,            # Use faster DTW implementation
             n_jobs=-1,
-            verbose=True
+            verbose=False
         ),
         df=df,
         evaluation_type="user-dependent",
         normalize=True,
         n_folds=10
     )
-    
-    # Print results
+
+    # Display results
     print(f"\nUser-Independent - Accuracy: {results_indep['mean_accuracy']:.2%} ± {results_indep['std_accuracy']:.2%}")
     print(f"Confusion Matrix:\n{results_indep['confusion_matrix']}")
     
-    print(f"\nUser-Independent - Accuracy: {results_dep['mean_accuracy']:.2%} ± {results_dep['std_accuracy']:.2%}")
+    print(f"\nUser-Dependent - Accuracy: {results_dep['mean_accuracy']:.2%} ± {results_dep['std_accuracy']:.2%}")
     print(f"Confusion Matrix:\n{results_dep['confusion_matrix']}")
+    
+    # Save results
+    evaluator.save_results_to_csv(results_indep, f"../Results/FastMDS/_user_independent_domain{domain_id}.csv")
+    evaluator.save_results_to_csv(results_dep, f"../Results/FastMDS/_user_dependent_domain{domain_id}.csv")
