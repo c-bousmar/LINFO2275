@@ -46,7 +46,7 @@ if __name__ == '__main__':
     
     k = 1
     domain_id = 4
-    distance_function = dtw_distance
+    distance_function = euclidean_distance
     use_string_repr = False
     
     # Get dataset
