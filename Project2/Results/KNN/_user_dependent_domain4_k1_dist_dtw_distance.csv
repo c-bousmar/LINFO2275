@@ -1,0 +1,13 @@
+fold,accuracy,type
+1,0.9,fold
+2,0.94,fold
+3,0.99,fold
+4,0.96,fold
+5,1.0,fold
+6,0.98,fold
+7,0.99,fold
+8,0.99,fold
+9,0.99,fold
+10,0.95,fold
+mean,0.969,summary
+std,0.029816103031751147,summary
