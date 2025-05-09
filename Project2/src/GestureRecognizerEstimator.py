@@ -23,7 +23,7 @@ class GestureRecognitionEvaluator:
         """
         self.verbose = verbose
     
-    def _prepare_sequences(self, df, normalize=True, use_string_repr=False):
+    def _prepare_sequences(self, model,df, normalize=True, use_string_repr=False):
         """
         Prepare sequences from dataframe, grouping by subject, target, and trial.
         
@@ -48,7 +48,10 @@ class GestureRecognitionEvaluator:
         
         for (subject_id, target, trial_id), group in gesture_groups:
             # Sort the sequences by time and get the coordinates only
-            sequence = group.sort_values('<t>')[['<x>', '<y>', '<z>']].values
+            if(model.__class__.__name__ == "DollarOne3DGestureRecognizer"):
+                sequence = group.sort_values('<t>')[['<x>', '<y>']].values
+            else:
+                sequence = group.sort_values('<t>')[['<x>', '<y>', '<z>']].values
             
             # Normalize if requested
             if normalize:
@@ -90,7 +93,7 @@ class GestureRecognitionEvaluator:
             print(f"\nPerforming {evaluation_type} evaluation:")
         
         # Prepare sequences
-        sequences, labels, subject_ids, trial_ids = self._prepare_sequences(df, normalize, use_string_repr)
+        sequences, labels, subject_ids, trial_ids = self._prepare_sequences(model,df, normalize, use_string_repr)
         
         if evaluation_type == 'user-independent':
             return self._evaluate_user_independent(model, sequences, labels, subject_ids)

@@ -24,7 +24,7 @@ class DollarOne3DGestureRecognizer:
         @param num_points: Number of points to resample each gesture to
         """
         self.num_points = num_points
-        self.pca = PCA(n_components=2)  # Reduce 3D to 2D
+        #self.pca = PCA(n_components=2)  # Reduce 3D to 2D
         self.templates = []  # Store gesture templates
     
     def _resample(self, points):
@@ -97,8 +97,8 @@ class DollarOne3DGestureRecognizer:
         @return: Preprocessed points ready for comparison
         """
         resampled = self._resample(points)
-        projected = self._pca_project(resampled)
-        rotated = self._rotate_to_base(projected)
+        #projected = self._pca_project(resampled)
+        rotated = self._rotate_to_base(resampled)
         return self._normalize_scale(rotated)
 
     def predict(self, X):
@@ -123,7 +123,7 @@ class DollarOne3DGestureRecognizer:
         """
         # Fit PCA on all resampled gestures to find best projection
         all_points = np.vstack([self._resample(g) for g in X_train])
-        self.pca.fit(all_points)
+        #self.pca.fit(all_points)
         
         # Create template for each training gesture
         self.templates = []
@@ -157,7 +157,7 @@ class DollarOne3DGestureRecognizer:
 
 if __name__ == "__main__":
     # Load dataset
-    domain_id = 1
+    domain_id = 4
     df = get_dataset_from_domain("../Data/dataset.csv", domain_number=domain_id)
 
     # Initialize evaluator with verbose output
