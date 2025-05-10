@@ -8,7 +8,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 
 from GestureRecognizerEstimator import GestureRecognitionEvaluator
-from datasets_utils import extract_features_from_gesture, get_dataset_from_domain
+from datasets_utils import extract_features_from_gesture, get_dataset_from_all_domains, get_dataset_from_domain
 
 
 class LRGestureRecognizer:
@@ -66,7 +66,7 @@ class LRGestureRecognizer:
 if __name__ == '__main__':
     # Load dataset
     domain_id = 4
-    df = get_dataset_from_domain("../Data/dataset.csv", domain_number=domain_id)
+    df = get_dataset_from_all_domains("../Data/dataset.csv")
 
     # Initialize evaluator with verbose output
     evaluator = GestureRecognitionEvaluator(verbose=True)
@@ -97,5 +97,5 @@ if __name__ == '__main__':
     print(f"Confusion Matrix:\n{results_dep['confusion_matrix']}")
     
     # Save results
-    evaluator.save_results_to_csv(results_indep, f"../Results/LogisticRegression/_user_independent_domain{domain_id}.csv")
-    evaluator.save_results_to_csv(results_dep, f"../Results/LogisticRegression/_user_dependent_domain{domain_id}.csv")
+    evaluator.save_results_to_csv(results_indep, f"../Results/LogisticRegression/_user_independent_all_domain.csv")
+    evaluator.save_results_to_csv(results_dep, f"../Results/LogisticRegression/_user_dependent_all_domain.csv")

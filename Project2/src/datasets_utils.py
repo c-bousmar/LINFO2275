@@ -6,6 +6,33 @@ import time
 
 from scipy.stats import skew, kurtosis
 
+def get_dataset_from_all_domains(dataset_path):
+    df = pd.read_csv(dataset_path, low_memory=False)
+    mapping = {
+        0: 0,
+        1: 1,
+        2: 2,
+        3: 3,
+        4: 4,
+        5: 5,
+        6: 6,
+        7: 7,
+        8: 8,
+        9: 9,
+        'CylindricalPipe': 10,
+        'Toroid': 11,
+        'Hemisphere': 12,
+        'Sphere': 13,
+        'Cuboid': 14,
+        'Cylinder': 15,
+        'RectangularPipe': 16,
+        'Pyramid': 17,
+        'Cone': 18,
+        'Tetrahedron': 19
+    }
+    df['target'] = df['target'].replace(mapping).astype(int)
+    return df
+
 def get_dataset_from_domain(dataset_path, domain_number):
     """
     Load and filter dataset by domain, with appropriate target type casting.
