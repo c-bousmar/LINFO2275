@@ -18,6 +18,8 @@ from datasets_utils import get_dataset_from_domain, extract_features_from_gestur
 from baseline.distance_metrics import dtw_distance
 from GestureRecognizerEstimator import GestureRecognitionEvaluator
 
+### This File Has Not Been Used For The Report ###
+### The Performance Was Very Bad               ###
 
 class FastMDSWithClassifier:
     """
