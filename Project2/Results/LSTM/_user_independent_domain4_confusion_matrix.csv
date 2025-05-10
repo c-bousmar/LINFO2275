@@ -1,0 +1,11 @@
+,Cone,Cuboid,Cylinder,CylindricalPipe,Hemisphere,Pyramid,RectangularPipe,Sphere,Tetrahedron,Toroid
+Cone,100,0,0,0,0,0,0,0,0,0
+Cuboid,0,96,3,0,0,0,0,0,0,1
+Cylinder,1,11,88,0,0,0,0,0,0,0
+CylindricalPipe,0,0,0,88,0,0,10,1,0,1
+Hemisphere,0,0,0,0,100,0,0,0,0,0
+Pyramid,0,0,0,0,0,98,0,0,2,0
+RectangularPipe,0,0,0,12,0,0,87,1,0,0
+Sphere,3,0,0,4,0,0,4,89,0,0
+Tetrahedron,1,0,0,0,0,2,0,0,97,0
+Toroid,0,1,2,0,1,0,0,0,0,96
