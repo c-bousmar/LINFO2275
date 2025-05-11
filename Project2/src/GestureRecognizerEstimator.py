@@ -3,7 +3,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm import tqdm
-from sklearn.base import clone
 from sklearn.metrics import confusion_matrix, accuracy_score, classification_report
 
 class GestureRecognitionEvaluator:
@@ -47,8 +46,9 @@ class GestureRecognitionEvaluator:
         sequences, labels, subject_ids, trial_ids = [], [], [], []
         
         for (subject_id, target, trial_id), group in gesture_groups:
-            # Sort the sequences by time and get the coordinates only
-            if(model.__class__.__name__ == "DollarOne3DGestureRecognizer"):
+            ## Sort the sequences by time and get the coordinates only
+            # Check if the model is DollarOne3DGestureRecognizer
+            if (model.__class__.__name__ == "DollarOne3DGestureRecognizer"):
                 sequence = group.sort_values('<t>')[['<x>', '<y>']].values
             else:
                 sequence = group.sort_values('<t>')[['<x>', '<y>', '<z>']].values
